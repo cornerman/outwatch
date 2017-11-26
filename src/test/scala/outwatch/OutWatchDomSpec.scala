@@ -52,7 +52,7 @@ class OutWatchDomSpec extends UnitSpec with BeforeAndAfterEach {
         Seq(
           div(),
           Attributes.`class` := "blue",
-          Attributes.onClick(1) --> Sink.create[Int](_ => IO.pure(())),
+          Attributes.onClick.onElement(1) --> Sink.create[Int](_ => IO.pure(())),
           Attributes.hidden <-- Observable.of(false)
         )
       ),

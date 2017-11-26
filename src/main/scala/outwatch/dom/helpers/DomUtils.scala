@@ -215,14 +215,14 @@ object DomUtils {
 
   // ensure a key is present in the VTree modifiers
   // used to ensure efficient Snabbdom patch operation in the presence of children streams
-  private def ensureVTreeKey(vtree: VTree): VTree = {
+  private def ensureVTreeKey(vtree: VTree_[_]): VTree_[_] = {
     val hasKey = vtree.modifiers.exists(m => m.unsafeRunSync().isInstanceOf[Key])
     val newModifiers = if (hasKey) vtree.modifiers else IO.pure(Key(this.hashCode)) +: vtree.modifiers
     vtree.copy(modifiers = newModifiers)
   }
 
   private[outwatch] def ensureVNodeKey[N >: VNode_](node: N): N = node match {
-    case vtree: VTree => ensureVTreeKey(vtree)
+    case vtree: VTree_[_] => ensureVTreeKey(vtree)
     case other => other
   }
 

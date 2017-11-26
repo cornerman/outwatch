@@ -52,7 +52,6 @@ private[outwatch] final case class UpdateHook(observer: Observer[(Element, Eleme
 private[outwatch] final case class PostPatchHook(observer: Observer[(Element, Element)]) extends Hook[(Element, Element)]
 private[outwatch] final case class DestroyHook(observer: Observer[Element]) extends Hook[Element]
 
-
 final case class AttributeStreamReceiver(attribute: String, attributeStream: Observable[Attribute]) extends VDomModifier_
 
 case object EmptyVDomModifier extends VDomModifier_
@@ -63,8 +62,6 @@ final case class ChildStreamReceiver(childStream: Observable[VNode]) extends Chi
 final case class ChildrenStreamReceiver(childrenStream: Observable[Seq[VNode]]) extends ChildVNode
 
 sealed trait VNode_ extends ChildVNode {
-  // TODO: have apply() only on VTree?
-  def apply(args: VDomModifier*): VNode = ???
   // TODO: rename asProxy to asSnabbdom?
   def asProxy: VNodeProxy
 }
@@ -77,10 +74,13 @@ private[outwatch] final case class StringNode(string: String) extends VNode_ {
 // TODO: instead of Seq[VDomModifier] use Vector or JSArray?
 // Fast concatenation and lastOption operations are important
 // Needs to be benchmarked in the Browser
-private[outwatch] final case class VTree(nodeType: String,
+final case class VTree_[Elem <: Element](nodeType: String,
                        modifiers: Seq[VDomModifier]) extends VNode_ {
 
-  override def apply(args: VDomModifier*) = IO.pure(VTree(nodeType, modifiers ++ args))
+  private val tagContext = new TagContext[Elem]
+
+  def apply(newModifiers: (TagContext[Elem] => VDomModifier)*): VTree[Elem] =
+    IO.pure(copy[Elem](modifiers = modifiers ++ newModifiers.map(_(tagContext))))
 
   override def asProxy = {
     val modifiers_ = modifiers.map(_.unsafeRunSync())
@@ -94,7 +94,3 @@ private[outwatch] final case class VTree(nodeType: String,
     hFunction(nodeType, attributeObject, childProxies)
   }
 }
-
-
-
-
