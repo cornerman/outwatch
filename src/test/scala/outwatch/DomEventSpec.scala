@@ -468,6 +468,38 @@ class DomEventSpec extends UnitSpec with BeforeAndAfterEach with PropertyChecks 
     element should not be null
   }
 
+  "TagWith" should "correctly work on events (macro)" in {
+
+    import InjectTagContext._
+
+    val node = Handler.create[String].flatMap { submit =>
+
+      for {
+        stringStream <- Handler.create[String]
+        doubleStream <- Handler.create[Double]
+        boolStream <- Handler.create[Boolean]
+        eventStream <- Handler.create[MouseEvent with TypedCurrentTargetEvent[html.Input]]
+        elem <- div(
+          input(
+            id := "input", tpe := "text",
+            onSearch.target.value --> stringStream,
+            onClick.value --> stringStream,
+            onSearch.target.valueAsNumber --> doubleStream,
+            onClick.valueAsNumber --> doubleStream,
+            onSearch.target.checked --> boolStream,
+            onClick.checked --> boolStream
+          ),
+          ul(id := "items")
+        )
+      } yield elem
+    }
+
+    OutWatch.render("#app", node).unsafeRunSync()
+
+    val element =document.getElementById("input")
+    element should not be null
+  }
+
   "DomEvents" should "correctly be compiled with currentTarget" in {
 
     val stringHandler = Handler.create[String].unsafeRunSync()
@@ -500,5 +532,88 @@ class DomEventSpec extends UnitSpec with BeforeAndAfterEach with PropertyChecks 
 
     val element =document.getElementById("input")
     element should not be null
+  }
+
+  it should "correctly be compiled with currentTarget (macro object)" in {
+
+    import InjectTagContext._
+
+    val stringHandler = Handler.create[String].unsafeRunSync()
+    def modifier(implicit ctx: TagContext[html.Input]): VDomModifier =
+      onDrag.map(_.currentTarget.value) --> stringHandler
+    def stringModifier[Elem <: Element : TagContext : TagWithString]: VDomModifier =
+      onDrag.value --> stringHandler
+
+
+    val node = Handler.create[String].flatMap { submit =>
+
+      for {
+        stream <- Handler.create[String]
+        eventStream <- Handler.create[MouseEvent with TypedCurrentTargetEvent[html.Input]]
+        elem <- div(
+          input(
+            id := "input", tpe := "text",
+            UnassignedEvent.UnassignedEventIsEmitterBuilder(onInput).map(_.currentTarget.value) --> stream,
+            onSearch.map(_.target.value) --> stream,
+            onClick --> eventStream,
+            modifier,
+            stringModifier,
+            onSearch.target.value --> stream,
+            onClick.value --> stream,
+            Seq(
+              onDrag --> eventStream
+            )
+          ),
+          ul(id := "items")
+        )
+      } yield elem
+    }
+
+    OutWatch.render("#app", node).unsafeRunSync()
+
+    val element =document.getElementById("input")
+    element should not be null
+  }
+
+  it should "correctly be compiled with currentTarget (macro inherit)" in {
+
+    object o extends InjectTagContext {
+
+    val stringHandler = Handler.create[String].unsafeRunSync()
+    def modifier(implicit ctx: TagContext[html.Input]): VDomModifier =
+      onDrag.map(_.currentTarget.value) --> stringHandler
+    def stringModifier[Elem <: Element : TagContext : TagWithString]: VDomModifier =
+      onDrag.value --> stringHandler
+
+    val node = Handler.create[String].flatMap { submit =>
+
+      for {
+        stream <- Handler.create[String]
+        eventStream <- Handler.create[MouseEvent with TypedCurrentTargetEvent[html.Input]]
+        elem <- div(
+          input(
+            id := "input", tpe := "text",
+            onInput.map(_.currentTarget.value) --> stream,
+            onSearch.map(_.target.value) --> stream,
+            onClick --> eventStream,
+            modifier,
+            stringModifier,
+            onSearch.target.value --> stream,
+            onClick.value --> stream,
+            Seq(
+              onDrag --> eventStream
+            )
+          ),
+          ul(id := "items")
+        )
+      } yield elem
+    }
+
+    OutWatch.render("#app", node).unsafeRunSync()
+
+    val element =document.getElementById("input")
+    }
+
+    o.element should not be null
   }
 }
