@@ -382,7 +382,7 @@ class DomEventSpec extends JSDomAsyncSpec {
 
     val node = Handler.create[String].flatMap { submit =>
 
-      val state = submit.scan(List.empty[String])((l, s) => l :+ s)
+      val state = submit.scanValue[List[String]]((l, s) => l.fold(s :: Nil)(_ :+ s))
 
       Handler.create[String].map { stream =>
         div(

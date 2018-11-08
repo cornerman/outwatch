@@ -222,7 +222,7 @@ class ScenarioTestSpec extends JSDomAsyncSpec {
       enterPressed = keyStream
         .filter(_.key == "Enter")
 
-      confirm = Observable(enterPressed, clickStream).merge
+      confirm: ValueObservable[String] = ValueObservable.merge(enterPressed, clickStream)
         .withLatestFrom(textFieldStream)((_, input) => input)
 
     } yield div(
@@ -252,7 +252,7 @@ class ScenarioTestSpec extends JSDomAsyncSpec {
       deletes = deleteHandler
         .map(removeFromList)
 
-      state = Observable(adds, deletes).merge
+      state = Observable(adds.toObservable, deletes.toObservable).merge
         .scan(Vector[String]())((state, modify) => modify(state))
         .map(_.map(n => TodoComponent(n, deleteHandler)))
       textFieldComponent = TextFieldComponent("Todo: ", inputHandler)

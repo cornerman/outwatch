@@ -191,7 +191,7 @@ private[outwatch] object NativeModifiers {
         case None =>
           lengthsArr += 0
       }
-      observables += stream.observable.map { mods =>
+      observables += stream.tailObservable.map { mods =>
         var i = 0
         var lengthBefore = 0
         while (i < index) {
@@ -236,11 +236,11 @@ private[outwatch] object NativeModifiers {
         }
       case m: ModifierStreamReceiver =>
         val stream = flattenModifierStream(m.stream)
-        Observable(Observable.now(stream.value.getOrElse(js.Array())), stream.observable).concat
+        Observable(Observable.now(stream.value.getOrElse(js.Array())), stream.tailObservable).concat
       case m: EffectModifier => findObservable(m.effect.unsafeRunSync())
       case m: SchedulerAction => findObservable(m.action(scheduler))
     }
-    val observable = modStream.observable.switchMap[js.Array[StaticVDomModifier]](findObservable).share
+    val observable = modStream.tailObservable.switchMap[js.Array[StaticVDomModifier]](findObservable).share
 
     @tailrec def findDefaultObservable(modifier: VDomModifier): ValueObservable[js.Array[StaticVDomModifier]] = modifier match {
       case h: DomHook =>  ValueObservable(observable, mirrorStreamedDomHook(h))
@@ -259,7 +259,7 @@ private[outwatch] object NativeModifiers {
       case m: ModifierStreamReceiver =>
         val stream = flattenModifierStream(m.stream)
         val initialObservable = observable.publishSelector { observable =>
-          Observable(stream.observable.takeUntil(observable), observable).merge
+          Observable(stream.tailObservable.takeUntil(observable), observable).merge
         }
         ValueObservable(initialObservable, stream.value.getOrElse(js.Array()))
       case m: EffectModifier => findDefaultObservable(m.effect.unsafeRunSync())

@@ -68,7 +68,6 @@ class MonixOpsSpec extends JSDomAsyncSpec {
 
       handler <- Handler.create[(String, Int)].unsafeToFuture()
        lensed = handler.lens[Int](("harals", 0))(_._2)((tuple, num) => (tuple._1, num))
-            _ = lensed.connect()
             _ = handler(handlerValue = _)
             _ = lensed(lensedValue = _)
             _ <- lensed.onNext(15)

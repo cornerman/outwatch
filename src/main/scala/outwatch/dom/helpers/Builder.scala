@@ -12,9 +12,8 @@ trait AttributeBuilder[-T, +A <: VDomModifier] extends Any {
 
   @inline def :=(value: T): A = assign(value)
   def :=?(value: Option[T]): Option[A] = value.map(assign)
-  def <--[F[_] : AsValueObservable](valueStream: F[_ <: T]): ModifierStreamReceiver = {
-    ModifierStreamReceiver(ValueObservable(valueStream).map(assign))
-  }
+  def <--[F[_] : AsValueObservable](valueStream: F[_ <: T]): ModifierStreamReceiver = ModifierStreamReceiver(ValueObservable(valueStream).map(assign))
+  def <--(valueStream: ValueObservable[T]): ModifierStreamReceiver = ModifierStreamReceiver(valueStream.map(assign))
 }
 
 object AttributeBuilder {

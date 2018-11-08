@@ -1089,7 +1089,7 @@ class OutWatchDomSpec extends JSDomAsyncSpec {
   "Children stream" should "work for string sequences" in {
 
     val myStrings: Observable[Seq[String]] = Observable(Seq("a", "b"))
-    val node = div(id := "strings", myStrings)
+    val node = div(id := "strings", ValueObservable(myStrings))
 
     OutWatch.renderInto("#app", node).map { _ =>
 
@@ -1379,41 +1379,41 @@ class OutWatchDomSpec extends JSDomAsyncSpec {
 
       val element = document.getElementById("strings")
       element.innerHTML shouldBe "<div>initial</div>"
-      numPatches shouldBe 1
+      numPatches shouldBe 0
 
       Handler.create[VDomModifier].flatMap { innerHandler =>
       myHandler.onNext(innerHandler.startWith(BasicAttr("initial", "2") :: Nil))
       element.innerHTML shouldBe """<div initial="2"></div>"""
-      numPatches shouldBe 3
+      numPatches shouldBe 1
 
       innerHandler.onNext(BasicAttr("attr", "3"))
       element.innerHTML shouldBe """<div attr="3"></div>"""
-      numPatches shouldBe 4
+      numPatches shouldBe 2
 
         Handler.create[VDomModifier].map { innerHandler2 =>
         myHandler.onNext(innerHandler2.startWith(VDomModifier("initial3") :: Nil))
         element.innerHTML shouldBe """<div>initial3</div>"""
-        numPatches shouldBe 6
+        numPatches shouldBe 3
 
         myHandler.onNext(IO.pure(CompositeModifier(ModifierStreamReceiver(ValueObservable(innerHandler2.startWith(VDomModifier("initial4") :: Nil))) :: Nil)))
         element.innerHTML shouldBe """<div>initial4</div>"""
-        numPatches shouldBe 8
+        numPatches shouldBe 4
 
         myHandler.onNext(IO.pure(CompositeModifier(StringVNode("pete") :: ModifierStreamReceiver(ValueObservable(innerHandler2)) :: Nil)))
         element.innerHTML shouldBe """<div>pete</div>"""
-        numPatches shouldBe 9
+        numPatches shouldBe 5
 
         innerHandler2.onNext(VDomModifier(id := "dieter", "r"))
         element.innerHTML shouldBe """<div id="dieter">peter</div>"""
-        numPatches shouldBe 10
+        numPatches shouldBe 6
 
         innerHandler.onNext("me?")
         element.innerHTML shouldBe """<div id="dieter">peter</div>"""
-        numPatches shouldBe 10
+        numPatches shouldBe 6
 
         myHandler.onNext(span("the end"))
         element.innerHTML shouldBe """<div><span>the end</span></div>"""
-        numPatches shouldBe 11
+        numPatches shouldBe 7
 
     }}}}
   }
@@ -2340,96 +2340,96 @@ class OutWatchDomSpec extends JSDomAsyncSpec {
       myString.onNext("hai!")
       renderFnCounter shouldBe 2
       mounts shouldBe List(0, 1)
-      preupdates shouldBe List(0, 0, 1)
-      updates shouldBe List(0, 0, 1)
+      preupdates shouldBe List(0, 0)
+      updates shouldBe List(0, 0)
       unmounts shouldBe List(0)
       element.innerHTML shouldBe """<b class="b" id="tier">hai!</b><b>something else</b>"""
 
       myId.onNext("nope")
       renderFnCounter shouldBe 2
       mounts shouldBe List(0, 1)
-      preupdates shouldBe List(0, 0, 1, 1)
-      updates shouldBe List(0, 0, 1, 1)
+      preupdates shouldBe List(0, 0, 1)
+      updates shouldBe List(0, 0, 1)
       unmounts shouldBe List(0)
       element.innerHTML shouldBe """<b class="b" id="nope">hai!</b><b>something else</b>"""
 
       myString.onNext("empty")
       renderFnCounter shouldBe 2
       mounts shouldBe List(0, 1, 2)
-      preupdates shouldBe List(0, 0, 1, 1)
-      updates shouldBe List(0, 0, 1, 1)
+      preupdates shouldBe List(0, 0, 1)
+      updates shouldBe List(0, 0, 1)
       unmounts shouldBe List(0, 1)
       element.innerHTML shouldBe """<b>empty</b><b>something else</b>"""
 
       myId.onNext("nothing")
       renderFnCounter shouldBe 2
       mounts shouldBe List(0, 1, 2)
-      preupdates shouldBe List(0, 0, 1, 1)
-      updates shouldBe List(0, 0, 1, 1)
+      preupdates shouldBe List(0, 0, 1)
+      updates shouldBe List(0, 0, 1)
       unmounts shouldBe List(0, 1)
       element.innerHTML shouldBe """<b>empty</b><b>something else</b>"""
 
       myString.onNext("hans")
       renderFnCounter shouldBe 3
       mounts shouldBe List(0, 1, 2, 3)
-      preupdates shouldBe List(0, 0, 1, 1, 3)
-      updates shouldBe List(0, 0, 1, 1, 3)
+      preupdates shouldBe List(0, 0, 1)
+      updates shouldBe List(0, 0, 1)
       unmounts shouldBe List(0, 1, 2)
-      element.innerHTML shouldBe """<b class="b" id="nothing">hans</b><b>something else</b>"""
+      element.innerHTML shouldBe """<b id="nothing" class="b">hans</b><b>something else</b>"""
 
       myId.onNext("hans")
       renderFnCounter shouldBe 3
       mounts shouldBe List(0, 1, 2, 3)
-      preupdates shouldBe List(0, 0, 1, 1, 3, 3)
-      updates shouldBe List(0, 0, 1, 1, 3, 3)
+      preupdates shouldBe List(0, 0, 1, 3)
+      updates shouldBe List(0, 0, 1, 3)
       unmounts shouldBe List(0, 1, 2)
-      element.innerHTML shouldBe """<b class="b" id="hans">hans</b><b>something else</b>"""
+      element.innerHTML shouldBe """<b id="hans" class="b">hans</b><b>something else</b>"""
 
       myString.onNext("hans")
       renderFnCounter shouldBe 3
       mounts shouldBe List(0, 1, 2, 3)
-      preupdates shouldBe List(0, 0, 1, 1, 3, 3, 3)
-      updates shouldBe List(0, 0, 1, 1, 3, 3, 3)
+      preupdates shouldBe List(0, 0, 1, 3, 3)
+      updates shouldBe List(0, 0, 1, 3, 3)
       unmounts shouldBe List(0, 1, 2)
-      element.innerHTML shouldBe """<b class="b" id="hans">hans</b><b>something else</b>"""
+      element.innerHTML shouldBe """<b id="hans" class="b">hans</b><b>something else</b>"""
 
       thunkContent.onNext(p(dsl.key := "1", "el dieter"))
       renderFnCounter shouldBe 3
       mounts shouldBe List(0, 1, 2, 3)
-      preupdates shouldBe List(0, 0, 1, 1, 3, 3, 3, 3)
-      updates shouldBe List(0, 0, 1, 1, 3, 3, 3, 3)
+      preupdates shouldBe List(0, 0, 1, 3, 3, 3)
+      updates shouldBe List(0, 0, 1, 3, 3, 3)
       unmounts shouldBe List(0, 1, 2)
-      element.innerHTML shouldBe """<b class="b" id="hans">hans<p>el dieter</p></b><b>something else</b>"""
+      element.innerHTML shouldBe """<b id="hans" class="b">hans<p>el dieter</p></b><b>something else</b>"""
 
       thunkContent.onNext(p(dsl.key := "2", "el dieter II"))
       renderFnCounter shouldBe 3
       mounts shouldBe List(0, 1, 2, 3)
-      preupdates shouldBe List(0, 0, 1, 1, 3, 3, 3, 3, 3)
-      updates shouldBe List(0, 0, 1, 1, 3, 3, 3, 3, 3)
+      preupdates shouldBe List(0, 0, 1, 3, 3, 3, 3)
+      updates shouldBe List(0, 0, 1, 3, 3, 3, 3)
       unmounts shouldBe List(0, 1, 2)
-      element.innerHTML shouldBe """<b class="b" id="hans">hans<p>el dieter II</p></b><b>something else</b>"""
+      element.innerHTML shouldBe """<b id="hans" class="b">hans<p>el dieter II</p></b><b>something else</b>"""
 
       myOther.onNext(div("baem!"))
       renderFnCounter shouldBe 3
       mounts shouldBe List(0, 1, 2, 3)
-      preupdates shouldBe List(0, 0, 1, 1, 3, 3, 3, 3, 3)
-      updates shouldBe List(0, 0, 1, 1, 3, 3, 3, 3, 3)
+      preupdates shouldBe List(0, 0, 1, 3, 3, 3, 3)
+      updates shouldBe List(0, 0, 1, 3, 3, 3, 3)
       unmounts shouldBe List(0, 1, 2)
-      element.innerHTML shouldBe """<b class="b" id="hans">hans<p>el dieter II</p></b><div>baem!</div><b>something else</b>"""
+      element.innerHTML shouldBe """<b id="hans" class="b">hans<p>el dieter II</p></b><div>baem!</div><b>something else</b>"""
 
       myInner.onNext("meh")
       renderFnCounter shouldBe 3
       mounts shouldBe List(0, 1, 2, 3, 4)
-      preupdates shouldBe List(0, 0, 1, 1, 3, 3, 3, 3, 3)
-      updates shouldBe List(0, 0, 1, 1, 3, 3, 3, 3, 3)
+      preupdates shouldBe List(0, 0, 1, 3, 3, 3, 3)
+      updates shouldBe List(0, 0, 1, 3, 3, 3, 3)
       unmounts shouldBe List(0, 1, 2, 3)
       element.innerHTML shouldBe """<div>meh</div><div>baem!</div><b>something else</b>"""
 
       myOther.onNext(div("fini"))
       renderFnCounter shouldBe 3
       mounts shouldBe List(0, 1, 2, 3, 4)
-      preupdates shouldBe List(0, 0, 1, 1, 3, 3, 3, 3, 3)
-      updates shouldBe List(0, 0, 1, 1, 3, 3, 3, 3, 3)
+      preupdates shouldBe List(0, 0, 1, 3, 3, 3, 3)
+      updates shouldBe List(0, 0, 1, 3, 3, 3, 3)
       unmounts shouldBe List(0, 1, 2, 3)
       element.innerHTML shouldBe """<div>meh</div><div>fini</div><b>something else</b>"""
     }
