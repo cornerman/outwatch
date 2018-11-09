@@ -69,10 +69,14 @@ final case class NextVDomModifier(modifier: StaticVDomModifier) extends StaticVD
 
 case object EmptyModifier extends VDomModifier
 final case class CompositeModifier(modifiers: js.Array[_ <: VDomModifier]) extends VDomModifier
-final case class ModifierStreamReceiver(stream: ValueObservable[VDomModifier]) extends VDomModifier
 final case class EffectModifier(effect: IO[VDomModifier]) extends VDomModifier
 final case class SchedulerAction(action: Scheduler => VDomModifier) extends VDomModifier
 final case class StringVNode(text: String) extends VDomModifier
+
+sealed trait StreamModifier extends VDomModifier
+final case class ModifierStreamReceiver(stream: ValueObservable[VDomModifier]) extends StreamModifier
+final case class StaticModifierStreamReceiver(stream: ValueObservable[StaticVDomModifier]) extends StreamModifier
+final case class VNodeModifierStreamReceiver(stream: ValueObservable[VNode]) extends StreamModifier
 
 sealed trait VNode extends VDomModifier {
   def apply(args: VDomModifier*): VNode
@@ -89,12 +93,12 @@ sealed trait BasicVNode extends VNode {
 }
 
 final case class ThunkVNode(baseNode: BasicVNode, key: Key.Value, arguments: js.Array[Any], renderFn: () => VDomModifier) extends VNode {
-  def apply(args: VDomModifier*): ThunkVNode = copy(baseNode = baseNode(args))
-  def prepend(args: VDomModifier*): ThunkVNode = copy(baseNode = baseNode.prepend(args))
+  def apply(args: VDomModifier*): ThunkVNode = copy(baseNode = baseNode(args: _*))
+  def prepend(args: VDomModifier*): ThunkVNode = copy(baseNode = baseNode.prepend(args: _*))
 }
 final case class ConditionalVNode(baseNode: BasicVNode, key: Key.Value, shouldRender: Boolean, renderFn: () => VDomModifier) extends VNode {
-  def apply(args: VDomModifier*): ConditionalVNode = copy(baseNode = baseNode(args))
-  def prepend(args: VDomModifier*): ConditionalVNode = copy(baseNode = baseNode.prepend(args))
+  def apply(args: VDomModifier*): ConditionalVNode = copy(baseNode = baseNode(args: _*))
+  def prepend(args: VDomModifier*): ConditionalVNode = copy(baseNode = baseNode.prepend(args: _*))
 }
 final case class HtmlVNode(nodeType: String, modifiers: js.Array[VDomModifier]) extends BasicVNode {
   def apply(args: VDomModifier*): HtmlVNode = {

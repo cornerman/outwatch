@@ -1252,12 +1252,12 @@ class OutWatchDomSpec extends JSDomAsyncSpec {
           myHandler.onNext(innerHandler2)
           element.innerHTML shouldBe """<div></div>"""
 
-          myHandler.onNext(IO.pure(CompositeModifier(ModifierStreamReceiver(ValueObservable.from(innerHandler2)) :: Nil)))
+          myHandler.onNext(IO.pure(CompositeModifier(ModifierStreamReceiver(innerHandler2) :: Nil)))
           element.innerHTML shouldBe """<div></div>"""
 
-          myHandler.onNext(CompositeModifier(ModifierStreamReceiver(ValueObservable.from(innerHandler2)) :: Nil))
+          myHandler.onNext(CompositeModifier(ModifierStreamReceiver(innerHandler2) :: Nil))
 
-          myHandler.onNext(CompositeModifier(StringVNode("pete") :: ModifierStreamReceiver(ValueObservable.from(innerHandler2)) :: Nil))
+          myHandler.onNext(CompositeModifier(StringVNode("pete") :: ModifierStreamReceiver(innerHandler2) :: Nil))
           element.innerHTML shouldBe """<div>pete</div>"""
 
           innerHandler2.onNext(VDomModifier(id := "dieter", "r"))
@@ -1297,7 +1297,7 @@ class OutWatchDomSpec extends JSDomAsyncSpec {
 
       Handler.create[VDomModifier].flatMap { innerHandler =>
 
-        myHandler.onNext(ValueObservable.from(innerHandler, BasicAttr("initial", "2")))
+        myHandler.onNext(innerHandler.prepend(BasicAttr("initial", "2")))
         element.innerHTML shouldBe """<div initial="2"></div>"""
         numPatches shouldBe 1
 
@@ -1306,15 +1306,15 @@ class OutWatchDomSpec extends JSDomAsyncSpec {
         numPatches shouldBe 2
 
         Handler.create[VDomModifier].map {innerHandler2 =>
-          myHandler.onNext(ValueObservable.from(innerHandler2, VDomModifier("initial3")))
+          myHandler.onNext(innerHandler2.prepend(VDomModifier("initial3")))
           element.innerHTML shouldBe """<div>initial3</div>"""
           numPatches shouldBe 3
 
-          myHandler.onNext(IO.pure(CompositeModifier(ModifierStreamReceiver(ValueObservable.from(innerHandler2, VDomModifier("initial4"))) :: Nil)))
+          myHandler.onNext(IO.pure(CompositeModifier(ModifierStreamReceiver(innerHandler2.prepend(VDomModifier("initial4"))) :: Nil)))
           element.innerHTML shouldBe """<div>initial4</div>"""
           numPatches shouldBe 4
 
-          myHandler.onNext(IO.pure(CompositeModifier(StringVNode("pete") :: ModifierStreamReceiver(ValueObservable.from(innerHandler2)) :: Nil)))
+          myHandler.onNext(IO.pure(CompositeModifier(StringVNode("pete") :: ModifierStreamReceiver(innerHandler2) :: Nil)))
           element.innerHTML shouldBe """<div>pete</div>"""
           numPatches shouldBe 5
 
@@ -1395,7 +1395,7 @@ class OutWatchDomSpec extends JSDomAsyncSpec {
         element.innerHTML shouldBe """<div>initial3</div>"""
         numPatches shouldBe 3
 
-        myHandler.onNext(IO.pure(CompositeModifier(ModifierStreamReceiver(ValueObservable.from(innerHandler2.startWith(VDomModifier("initial4") :: Nil))) :: Nil)))
+        myHandler.onNext(IO.pure(CompositeModifier(ModifierStreamReceiver(innerHandler2.prepend(VDomModifier("initial4"))) :: Nil)))
         element.innerHTML shouldBe """<div>initial4</div>"""
         numPatches shouldBe 4
 
@@ -1428,7 +1428,7 @@ class OutWatchDomSpec extends JSDomAsyncSpec {
 
       val node = div(id := "strings",
         div(
-          ValueObservable.from(myHandler.map { x => outerTriggers += x; x }, VDomModifier(ValueObservable.from(innerHandler.map { x => innerTriggers += x; x }, VDomModifier("initial"))))
+          ValueObservable.from(myHandler.map { x => outerTriggers += x; x }, VDomModifier(innerHandler.map { x => innerTriggers += x; x }.prepend(VDomModifier("initial"))))
         )
       )
 
@@ -1449,7 +1449,7 @@ class OutWatchDomSpec extends JSDomAsyncSpec {
         outerTriggers.size shouldBe 1
         innerTriggers.size shouldBe 1
 
-        myHandler.onNext(ValueObservable.from(Observable.empty, BasicAttr("initial", "2")))
+        myHandler.onNext(ValueObservable(BasicAttr("initial", "2")))
         element.innerHTML shouldBe """<div initial="2"></div>"""
         outerTriggers.size shouldBe 2
         innerTriggers.size shouldBe 1
@@ -1459,7 +1459,7 @@ class OutWatchDomSpec extends JSDomAsyncSpec {
         outerTriggers.size shouldBe 2
         innerTriggers.size shouldBe 1
 
-        myHandler.onNext(ValueObservable.from(innerHandler.map { x => innerTriggers += x; x }, VDomModifier.empty))
+        myHandler.onNext(innerHandler.map { x => innerTriggers += x; x }.prepend(VDomModifier.empty))
         element.innerHTML shouldBe """<div>me?</div>"""
         outerTriggers.size shouldBe 3
         innerTriggers.size shouldBe 2
@@ -1475,7 +1475,7 @@ class OutWatchDomSpec extends JSDomAsyncSpec {
         Handler.create[VDomModifier].flatMap { innerHandler2 =>
         Handler.create[VDomModifier].map { innerHandler3 =>
 
-            innerHandler.onNext(ValueObservable.from(innerHandler2.map { x => innerTriggers2 += x; x }, VDomModifier(ValueObservable.from(innerHandler3.map { x => innerTriggers3 += x; x }))))
+            innerHandler.onNext(innerHandler2.map { x => innerTriggers2 += x; x }.prepend(VDomModifier(innerHandler3.map { x => innerTriggers3 += x; x })))
             element.innerHTML shouldBe """<div></div>"""
             outerTriggers.size shouldBe 3
             innerTriggers.size shouldBe 4
@@ -1965,7 +1965,7 @@ class OutWatchDomSpec extends JSDomAsyncSpec {
 
     val node = div(
       id := "strings",
-      ValueObservable.from(cmds, ChildCommand.ReplaceAll(div("huch") :: Nil))
+      cmds.prepend(ChildCommand.ReplaceAll(div("huch") :: Nil))
     )
 
     OutWatch.renderInto("#app", node).map { _ =>
@@ -2294,7 +2294,7 @@ class OutWatchDomSpec extends JSDomAsyncSpec {
       id := "strings",
       myString.map { myString =>
         if (myString == "empty") b.thunk("component")(myString)(VDomModifier("empty", mountHooks)) :VDomModifier
-        else ValueObservable.from(myInner.map[VNode](s => div(s, mountHooks)), b(id <-- myId).thunk("component")(myString) {
+        else myInner.map[VNode](s => div(s, mountHooks)).prepend(b(id <-- myId).thunk("component")(myString) {
           renderFnCounter += 1
           VDomModifier(cls := "b", myString, mountHooks, thunkContent)
         }): VDomModifier

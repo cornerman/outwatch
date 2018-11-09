@@ -12,7 +12,28 @@ trait AsVDomModifier[-T] {
   def asVDomModifier(value: T): VDomModifier
 }
 
-object AsVDomModifier {
+trait VDomModifierInstances0 {
+  implicit object ValueObservableRender extends AsVDomModifier[ValueObservable[VDomModifier]] {
+    @inline def asVDomModifier(value: ValueObservable[VDomModifier]): VDomModifier = ModifierStreamReceiver(value)
+  }
+
+  implicit def valueObservableRender[F[_] : AsValueObservable]: AsVDomModifier[F[VDomModifier]] = (valueStream: F[VDomModifier]) =>
+    ModifierStreamReceiver(ValueObservable.from(valueStream))
+
+  implicit def ValueObservableRenderAs[T : AsVDomModifier]: AsVDomModifier[ValueObservable[T]] = (valueStream: ValueObservable[T]) =>
+    ModifierStreamReceiver(valueStream.map(VDomModifier(_)))
+
+  implicit def valueObservableRenderAs[T : AsVDomModifier, F[_] : AsValueObservable]: AsVDomModifier[F[T]] = (valueStream: F[T]) =>
+    ModifierStreamReceiver(ValueObservable.from(valueStream).map(VDomModifier(_)))
+
+  implicit def childCommandObservableRender[F[_] : AsValueObservable]: AsVDomModifier[F[ChildCommand]] = (valueStream: F[ChildCommand]) =>
+    SchedulerAction(implicit scheduler => EffectModifier(ChildCommand.stream(ValueObservable.from(valueStream).map(Seq(_))).map(ModifierStreamReceiver(_))))
+
+  implicit def childCommandSeqObservableRender[F[_] : AsValueObservable]: AsVDomModifier[F[Seq[ChildCommand]]] = (valueStream: F[Seq[ChildCommand]]) =>
+    SchedulerAction(implicit scheduler => EffectModifier(ChildCommand.stream(ValueObservable.from(valueStream)).map(ModifierStreamReceiver(_))))
+}
+
+object AsVDomModifier extends VDomModifierInstances0  {
 
   implicit object JsArrayModifier extends AsVDomModifier[js.Array[VDomModifier]] {
     @inline def asVDomModifier(value: js.Array[VDomModifier]): VDomModifier = CompositeModifier(value)
@@ -80,24 +101,19 @@ object AsVDomModifier {
   implicit def effectRender[T : AsVDomModifier]: AsVDomModifier[IO[T]] = (effect: IO[T]) =>
     EffectModifier(effect.map(VDomModifier(_)))
 
-  implicit object ValueObservableRender extends AsVDomModifier[ValueObservable[VDomModifier]] {
-    @inline def asVDomModifier(value: ValueObservable[VDomModifier]): VDomModifier = ModifierStreamReceiver(value)
+  implicit object VNodeValueObservableRender extends AsVDomModifier[ValueObservable[VNode]] {
+    @inline def asVDomModifier(value: ValueObservable[VNode]): VDomModifier = VNodeModifierStreamReceiver(value)
   }
 
-  implicit def valueObservableRender[F[_] : AsValueObservable]: AsVDomModifier[F[VDomModifier]] = (valueStream: F[VDomModifier]) =>
-    ModifierStreamReceiver(ValueObservable.from(valueStream))
+  implicit def vNodeValueObservableRender[F[_] : AsValueObservable]: AsVDomModifier[F[VNode]] = (valueStream: F[VNode]) =>
+    VNodeModifierStreamReceiver(ValueObservable.from(valueStream))
 
-  implicit def ValueObservableRenderAs[T : AsVDomModifier]: AsVDomModifier[ValueObservable[T]] = (valueStream: ValueObservable[T]) =>
-    ModifierStreamReceiver(valueStream.map(VDomModifier(_)))
+  implicit object StaticValueObservableRender extends AsVDomModifier[ValueObservable[StaticVDomModifier]] {
+    @inline def asVDomModifier(value: ValueObservable[StaticVDomModifier]): VDomModifier = StaticModifierStreamReceiver(value)
+  }
 
-  implicit def valueObservableRenderAs[T : AsVDomModifier, F[_] : AsValueObservable]: AsVDomModifier[F[T]] = (valueStream: F[T]) =>
-    ModifierStreamReceiver(ValueObservable.from(valueStream).map(VDomModifier(_)))
-
-  implicit def childCommandObservableRender[F[_] : AsValueObservable]: AsVDomModifier[F[ChildCommand]] = (valueStream: F[ChildCommand]) =>
-    SchedulerAction(implicit scheduler => EffectModifier(ChildCommand.stream(ValueObservable.from(valueStream).map(Seq(_))).map(ModifierStreamReceiver(_))))
-
-  implicit def childCommandSeqObservableRender[F[_] : AsValueObservable]: AsVDomModifier[F[Seq[ChildCommand]]] = (valueStream: F[Seq[ChildCommand]]) =>
-    SchedulerAction(implicit scheduler => EffectModifier(ChildCommand.stream(ValueObservable.from(valueStream)).map(ModifierStreamReceiver(_))))
+  implicit def staticValueObservableRender[F[_] : AsValueObservable]: AsVDomModifier[F[StaticVDomModifier]] = (valueStream: F[StaticVDomModifier]) =>
+    StaticModifierStreamReceiver(ValueObservable.from(valueStream))
 
   //TODO: adding these does not compile anymore. why?
 //  implicit object ChildCommandObservableRender extends AsVDomModifier[ValueObservable[ChildCommand]] {

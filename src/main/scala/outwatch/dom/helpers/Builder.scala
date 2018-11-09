@@ -6,18 +6,18 @@ import outwatch.dom._
 
 import scala.language.dynamics
 
-trait AttributeBuilder[-T, +A <: VDomModifier] extends Any {
+trait AttributeBuilder[-T, +A <: StaticVDomModifier] extends Any {
   protected def name: String
   private[outwatch] def assign(value: T): A
 
   @inline def :=(value: T): A = assign(value)
   def :=?(value: Option[T]): Option[A] = value.map(assign)
-  def <--[F[_] : AsValueObservable](valueStream: F[_ <: T]): ModifierStreamReceiver = ModifierStreamReceiver(ValueObservable.from(valueStream).map(assign))
-  def <--(valueStream: ValueObservable[T]): ModifierStreamReceiver = ModifierStreamReceiver(valueStream.map(assign))
+  def <--[F[_] : AsValueObservable](valueStream: F[_ <: T]): StaticModifierStreamReceiver = StaticModifierStreamReceiver(ValueObservable.from(valueStream).map(assign))
+  def <--(valueStream: ValueObservable[T]): StaticModifierStreamReceiver = StaticModifierStreamReceiver(valueStream.map(assign))
 }
 
 object AttributeBuilder {
-  @inline implicit def toAttribute[A <: VDomModifier](builder: AttributeBuilder[Boolean, A]): A = builder := true
+  @inline implicit def toAttribute[A <: StaticVDomModifier](builder: AttributeBuilder[Boolean, A]): A = builder := true
 }
 
 // Attr
