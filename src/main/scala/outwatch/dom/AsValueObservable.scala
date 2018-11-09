@@ -10,7 +10,7 @@ trait AsValueObservable[-F[_]] {
 
 trait AsValueObservableInstances0 {
   implicit object observable extends AsValueObservable[Observable] {
-    @inline def as[T](stream: Observable[T]): ValueObservable[T] = ValueObservable(stream)
+    @inline def as[T](stream: Observable[T]): ValueObservable[T] = ValueObservable.from(stream)
   }
 }
 
@@ -20,7 +20,7 @@ object AsValueObservable extends AsValueObservableInstances0  {
   }
 
   implicit object variable extends AsValueObservable[Var] {
-    @inline def as[T](stream: Var[T]): ValueObservable[T] = ValueObservable(stream)
+    @inline def as[T](stream: Var[T]): ValueObservable[T] = ValueObservable.from(stream)
   }
 }
 
