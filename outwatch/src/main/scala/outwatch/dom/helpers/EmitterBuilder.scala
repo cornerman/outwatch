@@ -72,7 +72,7 @@ object EmitterBuilder {
 
   implicit class ModifierActions[O](val builder: EmitterBuilder[O, VDomModifier]) extends AnyVal {
     def useLatest[T](emitter: EmitterBuilder[T, VDomModifier]): EmitterBuilder[T, VDomModifier] = new CustomEmitterBuilder[T, VDomModifier]({ sink =>
-      IO {
+      VDomModifier.effect {
         var lastValue: js.UndefOr[T] = js.undefined
         VDomModifier(
           emitter foreach { lastValue = _ },

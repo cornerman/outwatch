@@ -1,6 +1,6 @@
 package outwatch.util
 
-import cats.effect.IO
+import cats.effect.SyncIO
 import cats.implicits._
 import monix.eval.Task
 import monix.execution.Scheduler
@@ -12,7 +12,7 @@ import outwatch._
 import outwatch.dom.dsl.events
 
 class Storage(domStorage: dom.Storage) {
-  private def subjectWithTransform(key: String, transform: Observable[Option[String]] => Observable[Option[String]])(implicit scheduler: Scheduler):IO[Handler[Option[String]]] = {
+  private def subjectWithTransform(key: String, transform: Observable[Option[String]] => Observable[Option[String]])(implicit scheduler: Scheduler):SyncIO[Handler[Option[String]]] = {
     val storage = new dom.ext.Storage(domStorage)
 
     for {
@@ -45,16 +45,16 @@ class Storage(domStorage: dom.Storage) {
         None
     }
 
-  def handlerWithoutEvents(key: String)(implicit scheduler: Scheduler): IO[Handler[Option[String]]] = {
+  def handlerWithoutEvents(key: String)(implicit scheduler: Scheduler): SyncIO[Handler[Option[String]]] = {
     subjectWithTransform(key, identity)
   }
 
-  def handlerWithEventsOnly(key: String)(implicit scheduler: Scheduler): IO[Handler[Option[String]]] = {
+  def handlerWithEventsOnly(key: String)(implicit scheduler: Scheduler): SyncIO[Handler[Option[String]]] = {
     val storageEvents = storageEventsForKey(key)
     subjectWithTransform(key, o => storageEvents)
   }
 
-  def handler(key: String)(implicit scheduler: Scheduler): IO[Handler[Option[String]]] = {
+  def handler(key: String)(implicit scheduler: Scheduler): SyncIO[Handler[Option[String]]] = {
     val storageEvents = storageEventsForKey(key)
     subjectWithTransform(key, Observable(_, storageEvents).merge)
   }

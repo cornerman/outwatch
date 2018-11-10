@@ -1,6 +1,6 @@
 package outwatch.util
 
-import cats.effect.IO
+import cats.effect.{IO, SyncIO}
 import monix.execution.Scheduler
 import monix.reactive.Observable
 import monix.reactive.subjects.PublishSubject
@@ -34,7 +34,7 @@ object Store {
   def create[State, Action](
     initialState: State,
     reducer: Reducer[State, Action]
-  )(implicit s: Scheduler): IO[ProHandler[Action, State]] = IO {
+  )(implicit s: Scheduler): SyncIO[ProHandler[Action, State]] = SyncIO {
 
       val subject = PublishSubject[Action]
 
@@ -59,11 +59,11 @@ object Store {
       )
   }
 
-  def get[S, A]: IO[ProHandler[A, S]] = storeRef.asInstanceOf[STRef[ProHandler[A, S]]].getOrThrow(NoStoreException)
+  def get[S, A]: SyncIO[ProHandler[A, S]] = storeRef.asInstanceOf[STRef[ProHandler[A, S]]].getOrThrow(NoStoreException)
 
   def renderWithStore[S, A](
     initialState: S, reducer: Reducer[S, A], selector: String, root: VNode
-  )(implicit s: Scheduler): IO[Unit] = for {
+  )(implicit s: Scheduler): SyncIO[Unit] = for {
     store <- Store.create(initialState, reducer)
     _ <- storeRef.asInstanceOf[STRef[ProHandler[A, S]]].put(store)
     _ <- OutWatch.renderInto(selector, root)

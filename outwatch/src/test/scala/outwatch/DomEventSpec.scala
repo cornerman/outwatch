@@ -23,7 +23,7 @@ class DomEventSpec extends JSDomAsyncSpec {
     }
 
     for {
-      vtree <- vtree
+      vtree <- vtree.toIO
           _ <- OutWatch.renderInto("#app", vtree)
        hasD <- IO(document.getElementById("btn").hasAttribute("disabled"))
           _ <- IO(hasD shouldBe false)

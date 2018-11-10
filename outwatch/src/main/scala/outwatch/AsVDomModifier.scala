@@ -1,7 +1,9 @@
 package outwatch
 
-import cats.effect.IO
+import cats.effect.{IO, Sync, SyncIO}
 import cats.syntax.functor._
+import monix.eval.TaskLike
+import monix.reactive.Observable
 import outwatch.dom._
 
 import scala.scalajs.js
@@ -73,12 +75,15 @@ object AsVDomModifier {
     @inline def asVDomModifier(value: Boolean): VDomModifier = StringVNode(value.toString)
   }
 
-  implicit object EffectRender extends AsVDomModifier[IO[VDomModifier]] {
-    @inline def asVDomModifier(value: IO[VDomModifier]): VDomModifier = EffectModifier(value)
+//  implicit def TaskLikeRender[F[_]: TaskLike]: AsVDomModifier[F[VDomModifier]] = (effect: F[VDomModifier]) =>
+//    ModifierStreamReceiver(ValueObservable.from(Observable.fromTaskLike(effect)))
+
+  implicit object SyncIORender extends AsVDomModifier[SyncIO[VDomModifier]] {
+    @inline def asVDomModifier(effect: SyncIO[VDomModifier]): VDomModifier = VDomModifier.effect(effect)
   }
 
-  implicit def effectRender[T : AsVDomModifier]: AsVDomModifier[IO[T]] = (effect: IO[T]) =>
-    EffectModifier(effect.map(VDomModifier(_)))
+  implicit def syncIORender[T : AsVDomModifier]: AsVDomModifier[SyncIO[T]] = (effect: SyncIO[T]) =>
+    VDomModifier.effect(effect.map(VDomModifier(_)))
 
   implicit def valueObservableRender[F[_] : AsValueObservable]: AsVDomModifier[F[VDomModifier]] = (valueStream: F[VDomModifier]) =>
     ModifierStreamReceiver(ValueObservable(valueStream))
@@ -87,8 +92,8 @@ object AsVDomModifier {
     ModifierStreamReceiver(ValueObservable(valueStream).map(VDomModifier(_)))
 
   implicit def childCommandObservableRender[F[_] : AsValueObservable]: AsVDomModifier[F[ChildCommand]] = (valueStream: F[ChildCommand]) =>
-    SchedulerAction(implicit scheduler => ChildCommand.stream(ValueObservable(valueStream).map(Seq(_))).map(ModifierStreamReceiver(_)))
+    SchedulerAction(implicit scheduler => ChildCommand.stream(ValueObservable(valueStream).map(Seq(_))))
 
   implicit def childCommandSeqObservableRender[F[_] : AsValueObservable]: AsVDomModifier[F[Seq[ChildCommand]]] = (valueStream: F[Seq[ChildCommand]]) =>
-    SchedulerAction(implicit scheduler => ChildCommand.stream(ValueObservable(valueStream)).map(ModifierStreamReceiver(_)))
+    SchedulerAction(implicit scheduler => ChildCommand.stream(ValueObservable(valueStream)))
 }

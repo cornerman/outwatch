@@ -1,6 +1,6 @@
 package outwatch
 
-import cats.effect.IO
+import cats.effect.SyncIO
 import monix.execution.{Ack, Cancelable, Scheduler}
 import monix.reactive.observers.Subscriber
 import monix.reactive.subjects.{BehaviorSubject, ReplaySubject}
@@ -9,17 +9,21 @@ import monix.reactive.{Observable, Observer}
 import scala.concurrent.Future
 
 object Handler {
-  def empty[T]:IO[Handler[T]] = create[T]
+  @inline def empty[T]:SyncIO[Handler[T]] = create[T]
 
-  def create[T]:IO[Handler[T]] = IO(unsafe[T])
-  def create[T](seed:T):IO[Handler[T]] = IO(unsafe[T](seed))
+  @inline def create[T]:SyncIO[Handler[T]] = SyncIO(unsafe[T])
+  @inline def create[T](seed:T):SyncIO[Handler[T]] = SyncIO(unsafe[T](seed))
 
-  def unsafe[T]:Handler[T] = ReplaySubject.createLimited(1)
-  def unsafe[T](seed:T):Handler[T] = BehaviorSubject[T](seed)
+  @inline def unsafe[T]:Handler[T] = ReplaySubject.createLimited(1)
+  @inline def unsafe[T](seed:T):Handler[T] = BehaviorSubject[T](seed)
 }
 
 object ProHandler {
-  def create[I,O](f: I => O): IO[ProHandler[I,O]] = for {
+  def create[I,O](seed: I, f: I => O): SyncIO[ProHandler[I,O]] = for {
+    handler <- Handler.create[I](seed)
+  } yield handler.mapObservable[O](f)
+
+  def create[I,O](f: I => O): SyncIO[ProHandler[I,O]] = for {
     handler <- Handler.create[I]
   } yield handler.mapObservable[O](f)
 

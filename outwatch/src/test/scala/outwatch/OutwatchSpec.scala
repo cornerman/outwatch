@@ -2,7 +2,7 @@ package outwatch
 
 import scala.language.implicitConversions
 import scala.concurrent.Future
-import cats.effect.IO
+import cats.effect.{IO, SyncIO}
 import monix.execution.Ack.Continue
 import monix.execution.ExecutionModel.SynchronousExecution
 import monix.execution.schedulers.TrampolineScheduler
@@ -92,4 +92,5 @@ abstract class JSDomAsyncSpec extends AsyncFlatSpec with OutwatchSpec {
   override implicit def executionContext = scheduler
 
   implicit def ioAssertionToFutureAssertion(io: IO[Assertion]): Future[Assertion] = io.unsafeToFuture()
+  implicit def syncIOAssertionToIO[T](io: SyncIO[T]): IO[T] = io.toIO
 }

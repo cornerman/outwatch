@@ -1,6 +1,8 @@
 package outwatch
 
 import cats.effect.IO
+import cats.effect.{IO, SyncIO}
+import monix.reactive.Observable
 import monix.reactive.subjects.{BehaviorSubject, PublishSubject, Var}
 import org.scalajs.dom.window.localStorage
 import org.scalajs.dom.{document, html, Element}
@@ -177,29 +179,29 @@ class OutWatchDomSpec extends JSDomAsyncSpec {
     val list = new collection.mutable.ArrayBuffer[String]
 
     val vtree = div(
-      IO {
+      SyncIO {
         list += "child1"
         ModifierStreamReceiver(ValueObservable(Observable(div())))
       },
-      IO {
+      SyncIO {
         list += "child2"
         ModifierStreamReceiver(ValueObservable(Observable()))
       },
-      IO {
+      SyncIO {
         list += "children1"
         ModifierStreamReceiver(ValueObservable(Observable()))
       },
-      IO {
+      SyncIO {
         list += "children2"
         ModifierStreamReceiver(ValueObservable(Observable()))
       },
       div(
-        IO {
+        SyncIO {
           list += "attr1"
           BasicAttr("attr1", "peter")
         },
         Seq(
-          IO {
+          SyncIO {
             list += "attr2"
             BasicAttr("attr2", "hans")
           }
@@ -312,7 +314,7 @@ class OutWatchDomSpec extends JSDomAsyncSpec {
 
       val vtree = div(
         div(
-          IO {
+          SyncIO {
             ioCounter += 1
             BasicAttr("hans", "")
           }
@@ -350,7 +352,7 @@ class OutWatchDomSpec extends JSDomAsyncSpec {
 
       val vtree = div(
         div(Seq(
-          IO {
+          SyncIO {
             ioCounter += 1
             BasicAttr("hans", "")
           }
