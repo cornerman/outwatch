@@ -18,9 +18,6 @@ inThisBuild(Seq(
   )
 ))
 
-requiresDOM in Global := true
-useYarn := true
-
 lazy val commonSettings = Seq(
   scalacOptions += {
     val local = baseDirectory.value.toURI
@@ -81,6 +78,9 @@ lazy val outwatch = project
       "snabbdom" -> "git://github.com/cornerman/snabbdom.git#bac3e6a"
     ),
 
+    requiresDOM in Test := true,
+    useYarn := true,
+
     publishMavenStyle := true,
 
     publishTo := {
@@ -109,5 +109,9 @@ lazy val bench = project
   .dependsOn(outwatch)
   .settings(
     scalaJSStage in Global := FullOptStage,
-    scalaJSUseMainModuleInitializer := true
+    scalaJSUseMainModuleInitializer := true,
+    useYarn := true,
+    requiresDOM := true,
+    jsEnv := new org.scalajs.jsenv.jsdomnodejs.JSDOMNodeJSEnv(),
+    libraryDependencies += "org.scala-js" %% "scalajs-env-jsdom-nodejs" % "1.0.0-M1"
   )
