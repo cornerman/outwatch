@@ -1,16 +1,41 @@
 package outwatch
 
-import org.scalajs.dom.document
+import org.scalajs.dom.{document, window}
 import outwatch.dom._
 import outwatch.dom.dsl._
 
 import scala.scalajs.js
+import monix.execution.Scheduler.Implicits.global
 
-class PerfTest extends JSDomSpec {
+object Performance {
+
+  def main(args: Array[String]): Unit = {
+    beforeEach()
+    runChildren()
+
+    beforeEach()
+    runThunks()
+
+    beforeEach()
+    runCommands()
+  }
 
   val numIterations = 100
 
-  "Perf" should "be" in {
+  def beforeEach(): Unit = {
+
+    document.body.innerHTML = ""
+
+    window.localStorage.clear()
+
+    // prepare body with <div id="app"></div>
+    val root = document.createElement("div")
+    root.id = "app"
+    document.body.appendChild(root)
+    ()
+  }
+
+  def runChildren(): Unit = {
     (0 to 10) foreach { round =>
       val elemId = "msg"
 
@@ -69,7 +94,7 @@ class PerfTest extends JSDomSpec {
     }
   }
 
-  it should "thunk" in {
+  def runThunks(): Unit = {
     (0 to 10) foreach { round =>
       val elemId = "msg"
 
@@ -129,7 +154,7 @@ class PerfTest extends JSDomSpec {
     }
   }
 
-  it should "cmd" in {
+  def runCommands(): Unit = {
     (0 to 10) foreach { round =>
 
       val elemId = "msg"

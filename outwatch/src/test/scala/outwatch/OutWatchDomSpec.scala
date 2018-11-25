@@ -2787,20 +2787,20 @@ class OutWatchDomSpec extends JSDomAsyncSpec {
       div(
         id := "strings",
         myList.map(_.indices.map { i =>
-          val c = renderFnCounter
+          val counter = renderFnCounter
           renderFnCounter += 1
           div {
 
             val node = myList.map { list => list(i) }
             val syncedIcon = isSynced.map { isSynced =>
-              if(i <= isSynced) div(dsl.key := "something", "a", renderFnCounter) else div("b", renderFnCounter)
+              if(i <= isSynced) div(dsl.key := "something", "a", counter) else div("b", counter)
             }
 
             node.map { node =>
               div(
                 div(node),
                 syncedIcon,
-                renderFnCounter
+                counter
               )
             }
           }
@@ -2836,20 +2836,20 @@ class OutWatchDomSpec extends JSDomAsyncSpec {
       div(
         id := "strings",
         myList.map(_.indices.map { i =>
-          val c = renderFnCounter
+          val counter = renderFnCounter
           renderFnCounter += 1
           div.static(i) {
 
             val node = myList.map { list => list(i) }
             val syncedIcon = isSynced.map { isSynced =>
-              if(i <= isSynced) div(dsl.key := "something", "a", renderFnCounter) else div("b", renderFnCounter)
+              if(i <= isSynced) div(dsl.key := "something", "a", counter) else div("b", counter)
             }
 
             node.map { node =>
               div(
                 div(node),
                 syncedIcon,
-                renderFnCounter
+                counter
               )
             }
           }
