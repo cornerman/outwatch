@@ -75,8 +75,8 @@ object AsVDomModifier {
     @inline def asVDomModifier(value: Boolean): VDomModifier = StringVNode(value.toString)
   }
 
-//  implicit def TaskLikeRender[F[_]: TaskLike]: AsVDomModifier[F[VDomModifier]] = (effect: F[VDomModifier]) =>
-//    ModifierStreamReceiver(ValueObservable.from(Observable.fromTaskLike(effect)))
+ implicit def TaskLikeRender[F[_]: TaskLike]: AsVDomModifier[F[VDomModifier]] = (effect: F[VDomModifier]) =>
+   ModifierStreamReceiver(ValueObservable.from(Observable.fromTaskLike(effect)))
 
   implicit object SyncIORender extends AsVDomModifier[SyncIO[VDomModifier]] {
     @inline def asVDomModifier(effect: SyncIO[VDomModifier]): VDomModifier = VDomModifier.effect(effect)
