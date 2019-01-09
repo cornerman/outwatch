@@ -106,6 +106,14 @@ private[outwatch] object SnabbdomOps {
               newProxy._update = proxy._update
               newProxy._args = proxy._args
 
+              proxy.elm.foreach { proxyElm =>
+                if(VNodeProxy.isDirty(proxyElm)) {
+                  // dom.console.log("repairing dom, since dirty: ", proxy.elm)
+                  VNodeProxy.removeDirty(proxyElm)
+                  VNodeProxy.repairDom(proxy)
+                }
+              }
+
               // call the snabbdom patch method and get the resulting proxy
               OutwatchTracing.patchSubject.onNext(newProxy)
               patch(proxy, newProxy)
