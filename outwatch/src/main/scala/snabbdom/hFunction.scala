@@ -215,6 +215,61 @@ object VNodeProxy {
     target._update = source._update
     target._args = source._args
   }
+
+  def setDirty(elem: org.scalajs.dom.Node):Unit = {
+    elem.asInstanceOf[js.Dynamic].__dirty = 1
+    val parent = elem.parentNode
+    if(parent != null)
+      setDirty(parent)
+  }
+
+  @inline def removeDirty(elem: org.scalajs.dom.Node):Unit = {
+   elem.asInstanceOf[js.Dynamic].__dirty = 0
+  }
+
+  @inline def isDirty(elem: org.scalajs.dom.Node):Boolean = {
+   elem.asInstanceOf[js.Dynamic].__dirty.asInstanceOf[js.UndefOr[Int]] == js.defined(1)
+  }
+
+  def repairDom(proxy: VNodeProxy):Unit = {
+    import proxy._
+    elm.foreach { elm =>
+      // assert(elm.tagName.toLowerCase == sel.get.toLowerCase, s"tag does not match: ${elm.tagName} != ${sel.get.toUpperCase}")
+      children.foreach { children =>
+        val domChildren = elm.childNodes
+        var i = 0
+        while(i < children.length) {
+          val childProxy = children(i)
+          if(childProxy.text.isDefined) {
+            // assert(childProxy.children.isEmpty)
+            val domChild = domChildren(i)
+
+            // remove all children of domChild
+            while (domChild.firstChild != null) {
+              domChild.removeChild(domChild.firstChild);
+            }
+
+            domChild.textContent = childProxy.text.get
+          } else {
+            childProxy.elm.foreach { childElm =>
+              val domChild = domChildren(i)
+              if(childElm != domChild) {
+                if(i < domChildren.length) {
+                  elm.replaceChild(childElm, domChild)
+                }
+                else
+                  elm.appendChild(childElm)
+              }
+
+              repairDom(childProxy)
+            }
+          }
+          i += 1
+        }
+        // assert(children.size == domChildren.length)
+      }
+    }
+  }
 }
 
 @js.native
