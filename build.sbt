@@ -21,11 +21,11 @@ inThisBuild(Seq(
   )
 ))
 
+val jsdomVersion = "13.2.0"
+
 lazy val commonSettings = Seq(
   addCompilerPlugin("org.typelevel" %% "kind-projector" % "0.10.3"),
   addCompilerPlugin("com.github.ghik" % "silencer-plugin" % "1.4.3" cross CrossVersion.full),
-
-  requireJsDomEnv in Test := true,
 
   useYarn := true,
 
@@ -124,7 +124,8 @@ lazy val tests = project
   .settings(
     skip in publish := true,
 
-    useYarn := true,
+    requireJsDomEnv in Test := true,
+    version in installJsdom := jsdomVersion,
   )
 
 lazy val bench = project
@@ -147,7 +148,7 @@ lazy val bench = project
     useYarn := true,
 
     npmDependencies in Compile ++= Seq(
-      "jsdom" -> "9.9.0"
+      "jsdom" -> jsdomVersion
     ),
   )
 
