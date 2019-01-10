@@ -5,6 +5,17 @@ import outwatch.dom.dsl._
 import outwatch.dom.helpers.SnabbdomOps
 
 import scala.scalajs.js
+object ox {
+  import cats.implicits._
+
+  val o = Handler.unsafe[VNode]
+  val x: monix.reactive.Observable[VNode] = VNodeApply[monix.reactive.Observable].prepend(o)(href := "x", "foo")
+  val f = implicitly[cats.Functor[Option]]
+  val o2: Option[VNode] = Option(div)
+  val x2: Option[VNode] = o2.apply(href := "x", "foo")
+  val o3 = monix.reactive.Observable(Some(div))
+  val x3: monix.reactive.Observable[Option[VNode]] = o3.apply(href := "x", "foo")
+}
 
 class AttributeSpec extends JSDomSpec {
 
