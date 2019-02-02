@@ -1,12 +1,11 @@
 package outwatch
 
-import scala.scalajs.js
 import org.scalajs.dom.{Element, document}
 import outwatch.dom._
 import outwatch.dom.dsl._
-import org.scalajs.dom.raw.CSSStyleDeclaration
-import snabbdom._
+import outwatch.dom.helpers.NativeHelpers._
 import outwatch.dom.helpers.SnabbdomOps.toSnabbdom
+import snabbdom._
 
 class RepairDomSpec extends JSDomAsyncSpec {
 
@@ -28,10 +27,6 @@ class RepairDomSpec extends JSDomAsyncSpec {
       styles += (styleName -> value)
     }
     styles
-  }
-
-  implicit class ElementWithStyle(val elem: Element) {
-    def style: CSSStyleDeclaration = elem.asInstanceOf[js.Dynamic].style.asInstanceOf[CSSStyleDeclaration]
   }
 
   private def testCase(vNode: VNode, corruption: Element => Any) = {
@@ -242,6 +237,34 @@ class RepairDomSpec extends JSDomAsyncSpec {
       }
     )
   }
+
+  it should "changed first text node" in {
+    testCase(
+      vNode = div("boom", span()),
+      corruption = { elem =>
+        elem.firstChild.textContent = "calm"
+      }
+    )
+  }
+
+  it should "changed middle text node" in {
+    testCase(
+      vNode = div(div(), "wurm", code()),
+      corruption = { elem =>
+        elem.childNodes(1).textContent = "calm"
+      }
+    )
+  }
+
+  it should "changed last text node" in {
+    testCase(
+      vNode = div(div(), "reigen"),
+      corruption = { elem =>
+        elem.lastChild.textContent = "calm"
+      }
+    )
+  }
+
 
   it should "prepended text node" in {
     testCase(

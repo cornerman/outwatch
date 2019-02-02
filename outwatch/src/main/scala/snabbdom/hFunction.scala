@@ -5,6 +5,8 @@ import org.scalajs.dom._
 import scala.scalajs.js
 import scala.scalajs.js.annotation.JSImport
 import scala.scalajs.js.|
+import outwatch.dom.helpers.JSDefined
+import outwatch.dom.helpers.NativeHelpers._
 
 @js.native
 @JSImport("snabbdom/h", JSImport.Namespace, globalFallback = "h")
@@ -232,41 +234,144 @@ object VNodeProxy {
   }
 
   def repairDom(proxy: VNodeProxy):Unit = {
-    import proxy._
-    elm.foreach { elm =>
-      // assert(elm.tagName.toLowerCase == sel.get.toLowerCase, s"tag does not match: ${elm.tagName} != ${sel.get.toUpperCase}")
-      children.foreach { children =>
-        val domChildren = elm.childNodes
-        var i = 0
-        while(i < children.length) {
-          val childProxy = children(i)
-          if(childProxy.text.isDefined) {
-            // assert(childProxy.children.isEmpty)
-            val domChild = domChildren(i)
+    proxy.elm.foreach { elm =>
+      proxy.text match {
+        case JSDefined(text) =>
+          // assert(proxy.children.isEmpty)
 
-            // remove all children of domChild
-            while (domChild.firstChild != null) {
-              domChild.removeChild(domChild.firstChild);
-            }
+          // TODO: is this needed? I was not able to write a failing test-case
+          // remove all children of domChild
+          // while (elm.firstChild != null) {
+          //   elm.removeChild(elm.firstChild);
+          // }
 
-            domChild.textContent = childProxy.text.get
-          } else {
-            childProxy.elm.foreach { childElm =>
-              val domChild = domChildren(i)
-              if(childElm != domChild) {
-                if(i < domChildren.length) {
-                  elm.replaceChild(childElm, domChild)
+          elm.textContent = text
+        case _ =>
+          repairAttributes(proxy, elm)
+          repairStyles(proxy, elm)
+          //TODO: repairProps?
+          
+          proxy.children match {
+            case JSDefined(childProxies) =>
+              repairProxyNodes(childProxies, elm)
+              removeAppendedNodes(childProxies, elm)
+            case _ =>
+              removeAllDomChildren(elm)
+          }
+      }
+    }
+
+    def repairAttributes(proxy:VNodeProxy, elem:Element):Unit = {
+      proxy.data match {
+        case JSDefined(data) =>
+          data.attrs match {
+            case JSDefined(proxyAttributes) =>
+              // fix or remove existing attributes
+              var i = elem.attributes.length - 1
+              while(i >= 0) {
+                val currentAttribute = elem.attributes(i)
+                val name = currentAttribute.name
+                proxyAttributes.raw(name) match {
+                  case JSDefined(value) =>
+                    if(currentAttribute.value != value) // TODO: is this faster or slower than just always setting the attribute?
+                      elem.setAttribute(name, value.toString)
+                  case _ =>
+                    elem.removeAttribute(name)
                 }
-                else
-                  elm.appendChild(childElm)
+                i -= 1
               }
+              // add remaining attributes
+              proxyAttributes.keys.foreach{ name =>
+                val currentAttributeValue = elem.getAttribute(name)
+                val value = proxyAttributes(name)
+                if(currentAttributeValue != value) // TODO: is this faster or slower than just always setting the attribute?
+                  elem.setAttribute(name, value.toString)
+              }
+            case _ => removeAllAttributes(elem)
+          }
+        case _ => removeAllAttributes(elem)
+      }
+    }
 
-              repairDom(childProxy)
+    def removeAllAttributes(elem:Element):Unit = {
+      var i = elem.attributes.length - 1
+      while(i >= 0) {
+        val name = elem.attributes(i).name
+        if(name != "style")
+          elem.removeAttribute(name)
+        i -= 1
+      }
+    }
+
+
+    def repairStyles(proxy:VNodeProxy, elem:Element):Unit = {
+      proxy.data match {
+        case JSDefined(data) =>
+          data.style match {
+            case JSDefined(proxyStyles) =>
+              // fix or remove existing styles
+              var i = elem.style.length - 1
+              while(i >= 0) {
+                val name = elem.style(i)
+                proxyStyles.raw(name) match {
+                  case JSDefined(value) =>
+                    if(elem.style.getPropertyValue(name) != value) // TODO: is this faster or slower than just always setting the style?
+                      elem.style.setProperty(name, value.toString)
+                  case _ =>
+                    elem.style.removeProperty(name)
+                }
+                i -= 1
+              }
+              // add remaining attributes
+              proxyStyles.keys.foreach{ name =>
+                val currentStyleValue = elem.style.getPropertyValue(name)
+                val value = proxyStyles(name)
+                if(currentStyleValue != value) // TODO: is this faster or slower than just always setting the style?
+                  elem.style.setProperty(name, value.toString)
+              }
+            case _ => removeAllStyles(elem)
+          }
+        case _ => removeAllStyles(elem)
+      }
+    }
+
+    def removeAllStyles(elem:Element):Unit = {
+      elem.removeAttribute("style")
+    }
+
+    def removeAllDomChildren(parentNode: Element) = {
+      while (parentNode.firstChild != null) {
+        parentNode.removeChild(parentNode.firstChild)
+      }
+    }
+
+    def repairProxyNodes(childProxies: js.Array[VNodeProxy], parentNode: Element) = {
+      var i = 0
+      val childProxyCount = childProxies.length
+      val domChildrenCount = parentNode.childNodes.length
+      while(i < childProxyCount) {
+        val childProxy = childProxies(i)
+        childProxy.elm.foreach { originalDomChild =>
+          if(i < domChildrenCount) {
+            val currentDomChild = parentNode.childNodes(i)
+            if(currentDomChild != originalDomChild) {
+              parentNode.replaceChild(originalDomChild, currentDomChild)
             }
           }
-          i += 1
+          else
+            parentNode.appendChild(originalDomChild)
         }
-        // assert(children.size == domChildren.length)
+        repairDom(childProxy)
+        i += 1
+      }
+    }
+
+    def removeAppendedNodes(childProxies: js.Array[VNodeProxy], parentNode: Element) = {
+      var i = childProxies.length
+      val domChildrenCount = parentNode.childNodes.length
+      while(i < domChildrenCount) {
+        parentNode.removeChild(parentNode.childNodes(i))
+        i += 1
       }
     }
   }
