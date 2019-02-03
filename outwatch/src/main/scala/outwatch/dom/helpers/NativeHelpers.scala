@@ -31,8 +31,9 @@ object NativeHelpers {
     @inline def raw: DictionaryRawApply[A] = dict.asInstanceOf[DictionaryRawApply[A]]
   }
 
-  implicit class ElementWithStyle(val elem: Element) {
-    def style: CSSStyleDeclaration = elem.asInstanceOf[js.Dynamic].style.asInstanceOf[CSSStyleDeclaration]
+  implicit class RichElement(val elem: Element) {
+    def style: CSSStyleDeclaration = elem.asInstanceOf[js.Dynamic].style.asInstanceOf[CSSStyleDeclaration] // HTMLElement already has .style, but SVGElement doesn't
+    def dataset: js.Dictionary[String] = elem.asInstanceOf[js.Dynamic].dataset.asInstanceOf[js.Dictionary[String]] //TODO: https://github.com/scala-js/scala-js-dom/pull/337
   }
 
   @inline def assign[T](value: T)(f: T => Unit): T = { f(value); value }
