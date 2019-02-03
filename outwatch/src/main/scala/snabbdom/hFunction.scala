@@ -68,7 +68,7 @@ object DataObject {
   type StyleValue = String | js.Dictionary[String]
   type KeyValue = String | Double | Int // https://github.com/snabbdom/snabbdom#key--string--number
 
-  def empty: DataObject = new DataObject { }
+  def empty: DataObject = new DataObject {}
 }
 
 // These are the original facades for snabbdom thunk. But we implement our own, so that for equality checks, the equals method is used.
@@ -123,14 +123,14 @@ object thunk {
   }
 
   @inline private def prepatch(fn: () => VNodeProxy, shouldRender: Boolean, oldProxy: VNodeProxy, thunk: VNodeProxy): Unit = {
-    if (shouldRender) VNodeProxy.updateInto(source = fn(), target = thunk)
+    if(shouldRender) VNodeProxy.updateInto(source = fn(), target = thunk)
     else VNodeProxy.updateInto(source = oldProxy, target = thunk)
   }
 
   @inline private def existsIndexWhere(maxIndex: Int)(predicate: Int => Boolean): Boolean = {
     var i = 0
-    while (i < maxIndex) {
-      if (predicate(i)) return true
+    while(i < maxIndex) {
+      if(predicate(i)) return true
       i += 1
     }
     false
@@ -175,9 +175,9 @@ object patch {
     SnabbdomStyle.default
   ))
 
-  def apply(firstNode: VNodeProxy, vNode: VNodeProxy): VNodeProxy = p(firstNode,vNode)
+  def apply(firstNode: VNodeProxy, vNode: VNodeProxy): VNodeProxy = p(firstNode, vNode)
 
-  def apply(firstNode: org.scalajs.dom.Element, vNode: VNodeProxy): VNodeProxy = p(firstNode,vNode)
+  def apply(firstNode: org.scalajs.dom.Element, vNode: VNodeProxy): VNodeProxy = p(firstNode, vNode)
 }
 
 trait VNodeProxy extends js.Object {
@@ -200,7 +200,7 @@ object VNodeProxy {
     text = string
   }
 
-  def updateInto(source: VNodeProxy, target: VNodeProxy): Unit = if (source != target) {
+  def updateInto(source: VNodeProxy, target: VNodeProxy): Unit = if(source != target) {
     target.sel = source.sel
     target.key = source.key
     target.data = source.data
@@ -212,56 +212,51 @@ object VNodeProxy {
     target._unmount = source._unmount
   }
 
-  def copyInto(source: VNodeProxy, target: VNodeProxy): Unit = if (source != target) {
+  def copyInto(source: VNodeProxy, target: VNodeProxy): Unit = if(source != target) {
     updateInto(source, target)
     target._update = source._update
     target._args = source._args
   }
 
-  def setDirty(elem: org.scalajs.dom.Node):Unit = {
+  def setDirty(elem: org.scalajs.dom.Node): Unit = {
     elem.asInstanceOf[js.Dynamic].__dirty = 1
     val parent = elem.parentNode
     if(parent != null)
       setDirty(parent)
   }
 
-  @inline def removeDirty(elem: org.scalajs.dom.Node):Unit = {
-   elem.asInstanceOf[js.Dynamic].__dirty = 0
+  @inline def removeDirty(elem: org.scalajs.dom.Node): Unit = {
+    elem.asInstanceOf[js.Dynamic].__dirty = 0
   }
 
-  @inline def isDirty(elem: org.scalajs.dom.Node):Boolean = {
-   elem.asInstanceOf[js.Dynamic].__dirty.asInstanceOf[js.UndefOr[Int]] == js.defined(1)
+  @inline def isDirty(elem: org.scalajs.dom.Node): Boolean = {
+    elem.asInstanceOf[js.Dynamic].__dirty.asInstanceOf[js.UndefOr[Int]] == js.defined(1)
   }
 
-  def repairDom(proxy: VNodeProxy):Unit = {
+  def repairDom(proxy: VNodeProxy, level: Int = 0): Unit = {
+    // console.log(" "*level + s"repairing proxy ", proxy)
     proxy.elm.foreach { elm =>
+      // console.log(" "*level + s"element: ", elm)
       proxy.text match {
         case JSDefined(text) =>
-          // assert(proxy.children.isEmpty)
-
-          // TODO: is this needed? I was not able to write a failing test-case
-          // remove all children of domChild
-          // while (elm.firstChild != null) {
-          //   elm.removeChild(elm.firstChild);
-          // }
-
+          // console.log(" "*level + s"setting textContent: $text")
           elm.textContent = text
-        case _ =>
+        case _               =>
           repairAttributes(proxy, elm)
           repairStyles(proxy, elm)
-          //TODO: repairProps?
-          
+
           proxy.children match {
             case JSDefined(childProxies) =>
-              repairProxyNodes(childProxies, elm)
+              repairProxyNodes(childProxies, elm, level)
               removeAppendedNodes(childProxies, elm)
-            case _ =>
+            case _                       =>
               removeAllDomChildren(elm)
           }
+          repairProps(proxy, elm) // props could insert children with innerHTML
       }
     }
 
-    def repairAttributes(proxy:VNodeProxy, elem:Element):Unit = {
+    def repairAttributes(proxy: VNodeProxy, elem: Element): Unit = {
       proxy.data match {
         case JSDefined(data) =>
           data.attrs match {
@@ -273,27 +268,24 @@ object VNodeProxy {
                 val name = currentAttribute.name
                 proxyAttributes.raw(name) match {
                   case JSDefined(value) =>
-                    if(currentAttribute.value != value) // TODO: is this faster or slower than just always setting the attribute?
-                      elem.setAttribute(name, value.toString)
-                  case _ =>
+                    elem.setAttribute(name, value.toString)
+                  case _                =>
                     elem.removeAttribute(name)
                 }
                 i -= 1
               }
               // add remaining attributes
-              proxyAttributes.keys.foreach{ name =>
-                val currentAttributeValue = elem.getAttribute(name)
+              proxyAttributes.keys.foreach { name =>
                 val value = proxyAttributes(name)
-                if(currentAttributeValue != value) // TODO: is this faster or slower than just always setting the attribute?
-                  elem.setAttribute(name, value.toString)
+                elem.setAttribute(name, value.toString)
               }
-            case _ => removeAllAttributes(elem)
+            case _                          => removeAllAttributes(elem)
           }
-        case _ => removeAllAttributes(elem)
+        case _               => removeAllAttributes(elem)
       }
     }
 
-    def removeAllAttributes(elem:Element):Unit = {
+    def removeAllAttributes(elem: Element): Unit = {
       var i = elem.attributes.length - 1
       while(i >= 0) {
         val name = elem.attributes(i).name
@@ -304,7 +296,7 @@ object VNodeProxy {
     }
 
 
-    def repairStyles(proxy:VNodeProxy, elem:Element):Unit = {
+    def repairStyles(proxy: VNodeProxy, elem: Element): Unit = {
       proxy.data match {
         case JSDefined(data) =>
           data.style match {
@@ -314,38 +306,62 @@ object VNodeProxy {
               while(i >= 0) {
                 val name = elem.style(i)
                 proxyStyles.raw(name) match {
-                  case JSDefined(value) =>
-                    if(elem.style.getPropertyValue(name) != value) // TODO: is this faster or slower than just always setting the style?
-                      elem.style.setProperty(name, value.toString)
-                  case _ =>
-                    elem.style.removeProperty(name)
+                  case JSDefined(value) => elem.style.setProperty(name, value.asInstanceOf[String])
+                  case _                => elem.style.removeProperty(name)
                 }
                 i -= 1
               }
               // add remaining attributes
-              proxyStyles.keys.foreach{ name =>
-                val currentStyleValue = elem.style.getPropertyValue(name)
+              proxyStyles.keys.foreach { name =>
                 val value = proxyStyles(name)
-                if(currentStyleValue != value) // TODO: is this faster or slower than just always setting the style?
-                  elem.style.setProperty(name, value.toString)
+                elem.style.setProperty(name, value.asInstanceOf[String])
               }
-            case _ => removeAllStyles(elem)
+            case _                      => removeAllStyles(elem)
           }
-        case _ => removeAllStyles(elem)
+        case _               => removeAllStyles(elem)
       }
     }
 
-    def removeAllStyles(elem:Element):Unit = {
+    def removeAllStyles(elem: Element): Unit = {
       elem.removeAttribute("style")
     }
 
+    def repairProps(proxy: VNodeProxy, elem: Element): Unit = {
+      proxy.data match {
+        case JSDefined(data) =>
+          data.props match {
+            case JSDefined(proxyProps) =>
+              val domProps = elem.asInstanceOf[js.Dictionary[js.Any]]
+              // fix or remove existing props
+              domProps.keys.foreach { key =>
+                proxyProps.raw(key) match {
+                  case JSDefined(value) => domProps(key) = value.asInstanceOf[js.Any]
+                  case _                => domProps -= key
+                }
+              }
+
+              // add remaining props
+              proxyProps.keys.foreach { key =>
+                val value = proxyProps(key)
+                domProps(key) = value.asInstanceOf[js.Any]
+              }
+            case _                     => removeAllProps(elem)
+          }
+        case _               => removeAllProps(elem)
+      }
+    }
+
+    def removeAllProps(elem: Element): Unit = {
+      elem.asInstanceOf[js.Dictionary[String]].clear()
+    }
+
     def removeAllDomChildren(parentNode: Element) = {
-      while (parentNode.firstChild != null) {
+      while(parentNode.firstChild != null) {
         parentNode.removeChild(parentNode.firstChild)
       }
     }
 
-    def repairProxyNodes(childProxies: js.Array[VNodeProxy], parentNode: Element) = {
+    def repairProxyNodes(childProxies: js.Array[VNodeProxy], parentNode: Element, level: Int) = {
       var i = 0
       val childProxyCount = childProxies.length
       val domChildrenCount = parentNode.childNodes.length
@@ -361,7 +377,7 @@ object VNodeProxy {
           else
             parentNode.appendChild(originalDomChild)
         }
-        repairDom(childProxy)
+        repairDom(childProxy, level + 1)
         i += 1
       }
     }
@@ -392,13 +408,13 @@ object SnabbdomClass extends js.Object {
 
 @js.native
 @JSImport("snabbdom/modules/eventlisteners", JSImport.Namespace, globalFallback = "snabbdom_eventlisteners")
-object SnabbdomEventListeners extends js.Object{
+object SnabbdomEventListeners extends js.Object {
   val default: js.Any = js.native
 }
 
 @js.native
 @JSImport("snabbdom/modules/attributes", JSImport.Namespace, globalFallback = "snabbdom_attributes")
-object SnabbdomAttributes extends js.Object{
+object SnabbdomAttributes extends js.Object {
   val default: js.Any = js.native
 }
 
@@ -427,5 +443,5 @@ object SnabbdomStyle extends js.Object {
 @js.native
 @JSImport("snabbdom/tovnode", JSImport.Default)
 object tovnode extends js.Function1[Element, VNodeProxy] {
-  def apply(element: Element):VNodeProxy = js.native
+  def apply(element: Element): VNodeProxy = js.native
 }

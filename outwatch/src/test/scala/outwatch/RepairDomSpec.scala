@@ -1,6 +1,8 @@
 package outwatch
 
 import org.scalajs.dom.{Element, document}
+
+import scala.scalajs.js
 import outwatch.dom._
 import outwatch.dom.dsl._
 import outwatch.dom.helpers.NativeHelpers._
@@ -29,6 +31,14 @@ class RepairDomSpec extends JSDomAsyncSpec {
     styles
   }
 
+  private def propMap(elem: Element): Map[String, String] = {
+    elem.asInstanceOf[js.Dictionary[String]].toMap
+  }
+
+  private def datasetMap(elem: Element): Map[String, String] = {
+    elem.dataset.toMap
+  }
+
   private def testCase(vNode: VNode, corruption: Element => Any) = {
     val proxy = toSnabbdom(vNode)
 
@@ -43,8 +53,10 @@ class RepairDomSpec extends JSDomAsyncSpec {
     VNodeProxy.repairDom(proxy)
 
     fragileNode.innerHTML shouldBe originalNode.innerHTML
+    propMap(fragileNode) shouldBe propMap(originalNode)
     styleMap(fragileNode) shouldBe styleMap(originalNode)
     attributeMap(fragileNode) shouldBe attributeMap(originalNode)
+    datasetMap(fragileNode) shouldBe datasetMap(originalNode)
   }
 
 
@@ -302,6 +314,15 @@ class RepairDomSpec extends JSDomAsyncSpec {
     )
   }
 
+  it should "removed numeric attribute" in {
+    testCase(
+      vNode = div(rows := 3),
+      corruption = { elem =>
+        elem.removeAttribute("rows")
+      }
+    )
+  }
+
   it should "replaced attribute" in {
     testCase(
       vNode = div(id := "ich"),
@@ -320,12 +341,61 @@ class RepairDomSpec extends JSDomAsyncSpec {
     )
   }
 
+  // data attributes
+  // since outwatch currently does not use the snabbdom dataset module,
+  // (https://github.com/snabbdom/snabbdom#the-dataset-module)
+  // repairing is already handled by repairAttributes
+  "RepairDom: Data-Attributes" should "removed data attribute" in {
+    testCase(
+      vNode = div(data.id := "ich"),
+      corruption = { elem =>
+        elem.dataset -= "id"
+      }
+    )
+  }
+
+  it should "removed numeric data attribute" in {
+    testCase(
+      vNode = div(data.rows := 3),
+      corruption = { elem =>
+        elem.dataset -= "rows"
+      }
+    )
+  }
+
+  it should "replaced data attribute" in {
+    testCase(
+      vNode = div(data.id := "ich"),
+      corruption = { elem =>
+        elem.dataset("id") = "wir"
+      }
+    )
+  }
+
+  it should "added data attribute" in {
+    testCase(
+      vNode = div(data.id := "ich"),
+      corruption = { elem =>
+        elem.dataset("color") = "tomato"
+      }
+    )
+  }
+
   // styles
   "RepairDom: Styles" should "removed style" in {
     testCase(
       vNode = div(margin := "3px"),
       corruption = { elem =>
         elem.style.removeProperty("margin")
+      }
+    )
+  }
+
+  it should "removed numeric style" in {
+    testCase(
+      vNode = div(opacity := 0.5),
+      corruption = { elem =>
+        elem.style.removeProperty("opacity")
       }
     )
   }
@@ -347,6 +417,53 @@ class RepairDomSpec extends JSDomAsyncSpec {
       }
     )
   }
+
+  // props
+  "RepairDom: Props" should "removed prop" in {
+    testCase(
+      vNode = div(prop("href") := "/foo"),
+      corruption = { elem =>
+        elem.asInstanceOf[js.Dictionary[String]] -= "href"
+      }
+    )
+  }
+
+  it should "removed prop innerHTML" in {
+    testCase(
+      vNode = div(prop("innerHTML") := "<b>bonjour</b>"),
+      corruption = { elem =>
+        elem.removeChild(elem.firstChild)
+      }
+    )
+  }
+
+  it should "removed prop nested innerHTML" in {
+    testCase(
+      vNode = div(span(prop("innerHTML") := "<b>bonjour</b>")),
+      corruption = { elem =>
+        elem.removeChild(elem.firstChild)
+      }
+    )
+  }
+
+  it should "changed prop" in {
+    testCase(
+      vNode = div(prop("href") := "/foo"),
+      corruption = { elem =>
+        elem.asInstanceOf[js.Dictionary[String]]("href") = "bar"
+      }
+    )
+  }
+
+  it should "added prop" in {
+    testCase(
+      vNode = div(),
+      corruption = { elem =>
+        elem.asInstanceOf[js.Dictionary[String]] += ("href" -> "/foo")
+      }
+    )
+  }
+
 
   // transitive children
   "RepairDom: transitive children" should "removed node with transitive children" in {
