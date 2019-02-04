@@ -1,5 +1,6 @@
 package snabbdom
 
+import org.scalajs.dom
 import org.scalajs.dom._
 
 import scala.scalajs.js
@@ -230,7 +231,7 @@ object VNodeProxy {
     elem.asInstanceOf[js.Dynamic].__dirty.asInstanceOf[js.UndefOr[Int]] == js.defined(1)
   }
 
-  val repairDomBeforePatch:outwatch.dom.VDomModifier = {
+  val repairDomBeforePatch: outwatch.dom.VDomModifier = {
     outwatch.dom.PrePatchHook((beforeProxy, _) => if(beforeProxy.elm.exists(isDirty)) repairDom(beforeProxy))
   }
 
@@ -365,11 +366,10 @@ object VNodeProxy {
     def repairProxyNodes(childProxies: js.Array[VNodeProxy], parentNode: Element, level: Int) = {
       var i = 0
       val childProxyCount = childProxies.length
-      val domChildrenCount = parentNode.childNodes.length
       while(i < childProxyCount) {
         val childProxy = childProxies(i)
         childProxy.elm.foreach { originalDomChild =>
-          if(i < domChildrenCount) {
+          if(i < parentNode.childNodes.length) {
             val currentDomChild = parentNode.childNodes(i)
             if(currentDomChild != originalDomChild) {
               parentNode.replaceChild(originalDomChild, currentDomChild)
