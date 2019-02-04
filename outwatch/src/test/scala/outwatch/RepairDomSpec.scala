@@ -485,4 +485,13 @@ class RepairDomSpec extends JSDomAsyncSpec {
       }
     )
   }
+
+  it should "reordered children" in {
+    testCase(
+      vNode = div(span(), code()),
+      corruption = { elem =>
+        elem.insertBefore(elem.firstChild, null)
+      }
+    )
+  }
 }
