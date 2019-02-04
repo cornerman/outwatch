@@ -218,11 +218,8 @@ object VNodeProxy {
     target._args = source._args
   }
 
-  def setDirty(elem: org.scalajs.dom.Node): Unit = {
+  @inline def setDirty(elem: org.scalajs.dom.Node): Unit = {
     elem.asInstanceOf[js.Dynamic].__dirty = 1
-    val parent = elem.parentNode
-    if(parent != null)
-      setDirty(parent)
   }
 
   @inline def removeDirty(elem: org.scalajs.dom.Node): Unit = {
@@ -231,6 +228,10 @@ object VNodeProxy {
 
   @inline def isDirty(elem: org.scalajs.dom.Node): Boolean = {
     elem.asInstanceOf[js.Dynamic].__dirty.asInstanceOf[js.UndefOr[Int]] == js.defined(1)
+  }
+
+  val repairDomBeforePatch:outwatch.dom.VDomModifier = {
+    outwatch.dom.PrePatchHook((beforeProxy, _) => if(beforeProxy.elm.exists(isDirty)) repairDom(beforeProxy))
   }
 
   def repairDom(proxy: VNodeProxy, level: Int = 0): Unit = {
