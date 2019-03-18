@@ -42,8 +42,8 @@ class RepairDomSpec extends JSDomAsyncSpec {
   private def testCase(vNode: VNode, corruption: Element => Any) = {
     val proxy = toSnabbdom(vNode)
 
-    val originalNode = document.createElement("div")
-    val fragileNode = document.createElement("div")
+    val originalNode = document.createElement(proxy.sel.get)
+    val fragileNode = document.createElement(proxy.sel.get)
     document.body.appendChild(originalNode)
     document.body.appendChild(fragileNode)
     patch(originalNode, proxy)
@@ -493,5 +493,34 @@ class RepairDomSpec extends JSDomAsyncSpec {
         elem.insertBefore(elem.firstChild, null)
       }
     )
+  }
+
+  it should "not try to remove children as properties" in {
+    // select-option behaves differently than any other element in the dom.
+    // option children are added to the parent element as properties, where
+    // the property key is the index of the option child. These properties
+    // are non-configurable, you cannot and should not delete them.
+    val vNode = select(option(), option())
+    val corruption: Element => Unit = { elem =>
+      elem.asInstanceOf[js.Dynamic].ralf = "heinz"
+    }
+
+    val proxy = toSnabbdom(vNode)
+
+    val originalNode = document.createElement(proxy.sel.get)
+    val fragileNode = document.createElement(proxy.sel.get)
+    document.body.appendChild(originalNode)
+    document.body.appendChild(fragileNode)
+    patch(originalNode, proxy)
+    patch(fragileNode, proxy)
+
+    corruption(fragileNode)
+    VNodeProxy.repairDom(proxy)
+
+    fragileNode.innerHTML shouldBe originalNode.innerHTML
+    propMap(fragileNode).filterKeys(key => !Set("0", "1")(key)) shouldBe propMap(originalNode).filterKeys(key => !Set("0", "1")(key)) // filter out the weird option children in the propertymap. they are fine.
+    styleMap(fragileNode) shouldBe styleMap(originalNode)
+    attributeMap(fragileNode) shouldBe attributeMap(originalNode)
+    datasetMap(fragileNode) shouldBe datasetMap(originalNode)
   }
 }
