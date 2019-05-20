@@ -95,7 +95,7 @@ private[outwatch] object SnabbdomOps {
       var locked = false
 
       def subscribe(): Cancelable = {
-        observable.asyncBoundary(OverflowStrategy.Unbounded).unsafeSubscribeFn(Sink.create[js.Array[StaticVDomModifier]](
+        observable.unsafeSubscribeFn(Sink.create[js.Array[StaticVDomModifier]](
           { newState =>
             // First check whether we are not locked (currently running) and active (i.e., our subscription is not cancelled).
             // The obvious question of the reader might be: But then it is already cancelled?
