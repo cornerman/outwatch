@@ -92,23 +92,32 @@ private[outwatch] object SnabbdomOps {
       var nextModifiers: js.UndefOr[js.Array[StaticVDomModifier]] = null
       var isActive = false
 
+      var locked = false
+
       def subscribe(): Cancelable = {
         observable.asyncBoundary(OverflowStrategy.Unbounded).unsafeSubscribeFn(Sink.create[js.Array[StaticVDomModifier]](
           { newState =>
-            // First check whether we are active, i.e., our subscription is not cancelled.
+            // First check whether we are not locked (currently running) and active (i.e., our subscription is not cancelled).
             // The obvious question of the reader might be: But then it is already cancelled?
             // The answer: While this is true, it somehow happens in certain cases that eventhough we just cancelled the subcription, the observer is called one last time. The isActive flag prevents this. There is also a test assuring this, see OutwatchDomSpec "Nested VNode * outdated patch".
-            if (isActive) {
-              // update the current proxy with the new state
-              val separatedModifiers = SeparatedModifiers.from(nextModifiers.fold(newState)(newState ++ _))
-              nextModifiers = separatedModifiers.nextModifiers
-              val newProxy = createProxy(separatedModifiers, node.nodeType, vNodeId, vNodeNS)
-              newProxy._update = proxy._update
-              newProxy._args = proxy._args
+            if (locked) Ack.Continue
+            else if (isActive) {
+              locked = true
 
-              // call the snabbdom patch method and get the resulting proxy
-              OutwatchTracing.patchSubject.onNext(newProxy)
-              patch(proxy, newProxy)
+              dom.window.requestAnimationFrame { _ =>
+                // update the current proxy with the new state
+                val separatedModifiers = SeparatedModifiers.from(nextModifiers.fold(newState)(newState ++ _))
+                nextModifiers = separatedModifiers.nextModifiers
+                val newProxy = createProxy(separatedModifiers, node.nodeType, vNodeId, vNodeNS)
+                newProxy._update = proxy._update
+                newProxy._args = proxy._args
+
+                // call the snabbdom patch method and get the resulting proxy
+                OutwatchTracing.patchSubject.onNext(newProxy)
+                patch(proxy, newProxy)
+
+                locked = false
+              }
 
               Ack.Continue
             } else Ack.Stop
