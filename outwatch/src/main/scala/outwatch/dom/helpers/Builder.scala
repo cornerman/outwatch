@@ -53,8 +53,22 @@ final class AccumAttrBuilder[T](
 
 // Props
 
-final class PropBuilder[T](val name: String, encode: T => Prop.Value) extends AttributeBuilder[T, Prop] {
-  @inline private[outwatch] def assign(value: T) = Prop(name, encode(value))
+trait AccumulatePropOps[T] { self: AttributeBuilder[T, BasicProp] =>
+  protected def name: String
+  @inline def accum(s: String): AccumPropBuilder[T] = accum(_ + s + _)
+  @inline def accum(reducer: (Prop.Value, Prop.Value) => Prop.Value) = new AccumPropBuilder[T](name, this, reducer)
+}
+
+final class PropBuilder[T](val name: String, encode: T => Prop.Value) extends AttributeBuilder[T, BasicProp] with AccumulatePropOps[T] {
+  @inline private[outwatch] def assign(value: T) = BasicProp(name, encode(value))
+}
+
+@inline final class AccumPropBuilder[T](
+  val name: String,
+  builder: AttributeBuilder[T, BasicProp],
+  reduce: (Prop.Value, Prop.Value) => Prop.Value
+) extends AttributeBuilder[T, AccumProp] {
+  @inline private[outwatch] def assign(value: T) = AccumProp(name, builder.assign(value).value, reduce)
 }
 
 // Styles

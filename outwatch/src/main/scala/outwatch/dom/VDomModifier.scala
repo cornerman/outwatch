@@ -37,9 +37,11 @@ object Attr {
   type Value = DataObject.AttrValue
 }
 final case class BasicAttr(title: String, value: Attr.Value) extends Attr
-final case class AccumAttr(title: String, value: Attr.Value, accum: (Attr.Value, Attr.Value)=> Attr.Value) extends Attr
+final case class AccumAttr(title: String, value: Attr.Value, accum: (Attr.Value, Attr.Value) => Attr.Value) extends Attr
 
-final case class Prop(title: String, value: Prop.Value) extends StaticVDomModifier
+sealed trait Prop extends StaticVDomModifier
+final case class BasicProp(title: String, value: Prop.Value) extends Prop
+final case class AccumProp(title: String, value: Prop.Value, accum: (Prop.Value, Prop.Value) => Prop.Value) extends Prop
 object Prop {
   type Value = DataObject.PropValue
 }

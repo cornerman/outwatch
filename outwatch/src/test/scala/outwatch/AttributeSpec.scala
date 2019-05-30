@@ -15,7 +15,7 @@ class AttributeSpec extends JSDomSpec {
       cls := "class2"
     ))
 
-    node.data.get.attrs.get.toList shouldBe List("class" -> "class1 class2")
+    node.data.get.props.get.toList shouldBe List("class" -> "class1 class2")
   }
 
   "custom attributes" should "be able to be accumulated" in {

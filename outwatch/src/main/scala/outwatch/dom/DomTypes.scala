@@ -15,7 +15,7 @@ import scala.scalajs.js
 
 private[outwatch] object BuilderTypes {
   type Attribute[T, _] = helpers.AttributeBuilder[T, Attr]
-  type Property[T, _] = helpers.PropBuilder[T]
+  type Property[T, _] = helpers.AttributeBuilder[T, Prop]
   type EventEmitter[E <: dom.Event] = SyncEmitterBuilder[E, VDomModifier]
 }
 
@@ -81,11 +81,11 @@ object Attributes extends Attributes
 // Html Attrs
 trait HtmlAttrs
   extends attrs.HtmlAttrs[BasicAttrBuilder]
-  with reflectedAttrs.ReflectedHtmlAttrs[BuilderTypes.Attribute]
+  with reflectedAttrs.ReflectedHtmlAttrs[BuilderTypes.Property]
   with props.Props[BuilderTypes.Property]
-  with canonical.CanonicalComplexHtmlKeys[BuilderTypes.Attribute, BasicAttrBuilder, BuilderTypes.Property]
+  with canonical.CanonicalComplexHtmlKeys[BuilderTypes.Property, BasicAttrBuilder, BuilderTypes.Property]
   with builders.HtmlAttrBuilder[BasicAttrBuilder]
-  with builders.ReflectedHtmlAttrBuilder[BuilderTypes.Attribute]
+  with builders.ReflectedHtmlAttrBuilder[BuilderTypes.Property]
   with builders.PropBuilder[BuilderTypes.Property] {
 
   override protected def htmlAttr[V](key: String, codec: codecs.Codec[V, String]): BasicAttrBuilder[V] =
@@ -96,17 +96,14 @@ trait HtmlAttrs
     propKey: String,
     attrCodec: codecs.Codec[V, String],
     propCodec: codecs.Codec[V, DomPropV]
-  ): BasicAttrBuilder[V] = new BasicAttrBuilder(attrKey, CodecBuilder.encodeAttribute(attrCodec))
-  //or: new PropertyBuilder(propKey, propCodec.encode)
+  ): PropBuilder[V] = new PropBuilder(propKey, propCodec.encode)
+  //or: new BasicAttrBuilder(attrKey, CodecBuilder.encodeAttribute(attrCodec))
 
   override protected def prop[V, DomV](key: String, codec: codecs.Codec[V, DomV]): PropBuilder[V] =
     new PropBuilder(key, codec.encode)
 
   // super.className.accum(" ") would have been nicer, but we can't do super.className on a lazy val
-  override lazy val className = new AccumAttrBuilder[String]("class",
-    reflectedAttr(attrKey = "class", propKey = "className", attrCodec = codecs.StringAsIsCodec, propCodec = codecs.StringAsIsCodec),
-    _ + " " + _
-  )
+   override lazy val className = new AccumPropBuilder[String]("className", new PropBuilder("className", codecs.StringAsIsCodec.encode), _ + " " + _)
 }
 
 // Svg Attrs

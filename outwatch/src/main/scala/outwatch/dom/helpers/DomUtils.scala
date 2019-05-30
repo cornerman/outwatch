@@ -93,9 +93,17 @@ private[outwatch] object SeparatedModifiers {
         } { attr =>
           attrs(a.title) = a.accum(attr, a.value)
         }
-      case p : Prop =>
+      case p : BasicProp =>
         val props = assureProps()
         props(p.title) = p.value
+      case p : AccumProp =>
+        val props = assureProps()
+        val prop = props.raw(p.title)
+        prop.fold {
+          props(p.title) = p.value
+        } { prop =>
+          props(p.title) = p.accum(prop, p.value)
+        }
       case s: BasicStyle =>
         val styles = assureStyles()
         styles(s.title) = s.value
