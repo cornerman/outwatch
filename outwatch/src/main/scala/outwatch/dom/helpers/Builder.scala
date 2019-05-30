@@ -6,12 +6,12 @@ import outwatch.dom._
 
 import scala.language.dynamics
 
-trait AttributeBuilder[-T, +A <: VDomModifier] extends Any {
-  private[outwatch] def assign(value: T): A
+@inline trait AttributeBuilder[-T, +A <: VDomModifier] {
+  @inline def assign(value: T): A
 
   @inline def :=(value: T): A = assign(value)
-  def :=?(value: Option[T]): Option[A] = value.map(assign)
-  def <--[F[_] : AsValueObservable](valueStream: F[_ <: T]): ModifierStreamReceiver = {
+  @inline def :=?(value: Option[T]): Option[A] = value.map(assign)
+  @inline def <--[F[_] : AsValueObservable](valueStream: F[_ <: T]): ModifierStreamReceiver = {
     ModifierStreamReceiver(ValueObservable(valueStream).map(assign))
   }
 }
@@ -22,45 +22,45 @@ object AttributeBuilder {
 
 // Attr
 
-trait AccumulateAttrOps[T] { self: AttributeBuilder[T, BasicAttr] =>
+@inline trait AccumulateAttrOps[T] { self: AttributeBuilder[T, BasicAttr] =>
   protected def name: String
   @inline def accum(s: String): AccumAttrBuilder[T] = accum(_ + s + _)
   @inline def accum(reducer: (Attr.Value, Attr.Value) => Attr.Value) = new AccumAttrBuilder[T](name, this, reducer)
 }
 
-final class BasicAttrBuilder[T](val name: String, encode: T => Attr.Value) extends AttributeBuilder[T, BasicAttr]
+@inline final class BasicAttrBuilder[T](val name: String, encode: T => Attr.Value) extends AttributeBuilder[T, BasicAttr]
                                                                                    with AccumulateAttrOps[T] {
-  @inline private[outwatch] def assign(value: T) = BasicAttr(name, encode(value))
+  @inline def assign(value: T) = BasicAttr(name, encode(value))
 }
 
-final class DynamicAttrBuilder[T](parts: List[String]) extends Dynamic
+@inline final class DynamicAttrBuilder[T](parts: List[String]) extends Dynamic
                                                                with AttributeBuilder[T, BasicAttr]
                                                                with AccumulateAttrOps[T] {
   lazy val name: String = parts.reverse.mkString("-")
 
   def selectDynamic(s: String) = new DynamicAttrBuilder[T](s :: parts)
 
-  @inline private[outwatch] def assign(value: T) = BasicAttr(name, value.toString)
+  @inline def assign(value: T) = BasicAttr(name, value.toString)
 }
 
-final class AccumAttrBuilder[T](
+@inline final class AccumAttrBuilder[T](
   val name: String,
   builder: AttributeBuilder[T, BasicAttr],
   reduce: (Attr.Value, Attr.Value) => Attr.Value
 ) extends AttributeBuilder[T, AccumAttr] {
-  @inline private[outwatch] def assign(value: T) = AccumAttr(name, builder.assign(value).value, reduce)
+  @inline def assign(value: T) = AccumAttr(name, builder.assign(value).value, reduce)
 }
 
 // Props
 
-trait AccumulatePropOps[T] { self: AttributeBuilder[T, BasicProp] =>
+@inline trait AccumulatePropOps[T] { self: AttributeBuilder[T, BasicProp] =>
   protected def name: String
   @inline def accum(s: String): AccumPropBuilder[T] = accum(_ + s + _)
   @inline def accum(reducer: (Prop.Value, Prop.Value) => Prop.Value) = new AccumPropBuilder[T](name, this, reducer)
 }
 
-final class PropBuilder[T](val name: String, encode: T => Prop.Value) extends AttributeBuilder[T, BasicProp] with AccumulatePropOps[T] {
-  @inline private[outwatch] def assign(value: T) = BasicProp(name, encode(value))
+@inline final class PropBuilder[T](val name: String, encode: T => Prop.Value) extends AttributeBuilder[T, BasicProp] with AccumulatePropOps[T] {
+  @inline def assign(value: T) = BasicProp(name, encode(value))
 }
 
 @inline final class AccumPropBuilder[T](
@@ -68,43 +68,42 @@ final class PropBuilder[T](val name: String, encode: T => Prop.Value) extends At
   builder: AttributeBuilder[T, BasicProp],
   reduce: (Prop.Value, Prop.Value) => Prop.Value
 ) extends AttributeBuilder[T, AccumProp] {
-  @inline private[outwatch] def assign(value: T) = AccumProp(name, builder.assign(value).value, reduce)
+  @inline def assign(value: T) = AccumProp(name, builder.assign(value).value, reduce)
 }
 
 // Styles
 
-trait AccumulateStyleOps[T] extends Any { self: AttributeBuilder[T, BasicStyle] =>
+@inline trait AccumulateStyleOps[T] extends Any { self: AttributeBuilder[T, BasicStyle] =>
   protected def name: String
   @inline def accum: AccumStyleBuilder[T] = accum(",")
   @inline def accum(s: String): AccumStyleBuilder[T] = accum(_ + s + _)
   @inline def accum(reducer: (String, String) => String) = new AccumStyleBuilder[T](name, reducer)
 }
 
-final class BasicStyleBuilder[T](val name: String) extends AnyVal
-                                                           with AttributeBuilder[T, BasicStyle]
+@inline final class BasicStyleBuilder[T](val name: String) extends AttributeBuilder[T, BasicStyle]
                                                            with AccumulateStyleOps[T] {
-  @inline private[outwatch] def assign(value: T) = BasicStyle(name, value.toString)
+  @inline def assign(value: T) = BasicStyle(name, value.toString)
 
   @inline def delayed: DelayedStyleBuilder[T] = new DelayedStyleBuilder[T](name)
   @inline def remove: RemoveStyleBuilder[T] = new RemoveStyleBuilder[T](name)
   @inline def destroy: DestroyStyleBuilder[T] = new DestroyStyleBuilder[T](name)
 }
 
-final class DelayedStyleBuilder[T](val name: String) extends AnyVal with AttributeBuilder[T, DelayedStyle] {
-  @inline private[outwatch] def assign(value: T) = DelayedStyle(name, value.toString)
+@inline final class DelayedStyleBuilder[T](val name: String) extends AttributeBuilder[T, DelayedStyle] {
+  @inline def assign(value: T) = DelayedStyle(name, value.toString)
 }
 
-final class RemoveStyleBuilder[T](val name: String) extends AnyVal with AttributeBuilder[T, RemoveStyle] {
-  @inline private[outwatch] def assign(value: T) = RemoveStyle(name, value.toString)
+@inline final class RemoveStyleBuilder[T](val name: String) extends AttributeBuilder[T, RemoveStyle] {
+  @inline def assign(value: T) = RemoveStyle(name, value.toString)
 }
 
-final class DestroyStyleBuilder[T](val name: String) extends AnyVal with AttributeBuilder[T, DestroyStyle] {
-  @inline private[outwatch] def assign(value: T) = DestroyStyle(name, value.toString)
+@inline final class DestroyStyleBuilder[T](val name: String) extends AttributeBuilder[T, DestroyStyle] {
+  @inline def assign(value: T) = DestroyStyle(name, value.toString)
 }
 
-final class AccumStyleBuilder[T](val name: String, reducer: (String, String) => String)
+@inline final class AccumStyleBuilder[T](val name: String, reducer: (String, String) => String)
   extends AttributeBuilder[T, AccumStyle] {
-  @inline private[outwatch] def assign(value: T) = AccumStyle(name, value.toString, reducer)
+  @inline def assign(value: T) = AccumStyle(name, value.toString, reducer)
 }
 
 

@@ -14,11 +14,11 @@ import scala.scalajs.js
 
 trait EmitterBuilder[+O, +R] { self =>
 
-  def transform[T](tr: Observable[O] => Observable[T]): EmitterBuilder[T, R]
-  def -->(observer: Observer[O]): R
-  def map[T](f: O => T): EmitterBuilder[T, R]
-  def filter(predicate: O => Boolean): EmitterBuilder[O, R]
-  def collect[T](f: PartialFunction[O, T]): EmitterBuilder[T, R]
+  @inline def transform[T](tr: Observable[O] => Observable[T]): EmitterBuilder[T, R]
+  @inline def -->(observer: Observer[O]): R
+  @inline def map[T](f: O => T): EmitterBuilder[T, R]
+  @inline def filter(predicate: O => Boolean): EmitterBuilder[O, R]
+  @inline def collect[T](f: PartialFunction[O, T]): EmitterBuilder[T, R]
   def mapResult[S](f: R => S): EmitterBuilder[O, S]
 
   @inline def foreach(action: O => Unit): R = -->(Sink.fromFunction(action))
@@ -58,7 +58,7 @@ object EmitterBuilder {
     def stopImmediatePropagation: SyncEmitterBuilder[O, R] = builder.map { e => e.stopImmediatePropagation; e }
   }
 
-  implicit class TargetAsInput[O <: Event, R](builder: EmitterBuilder[O, R]) {
+  @inline implicit class TargetAsInput[O <: Event, R](builder: EmitterBuilder[O, R]) {
     object target {
       def value: EmitterBuilder[String, R] = builder.map(_.target.asInstanceOf[html.Input].value)
       def valueAsNumber: EmitterBuilder[Double, R] = builder.map(_.target.asInstanceOf[html.Input].valueAsNumber)
@@ -69,17 +69,17 @@ object EmitterBuilder {
     def checked: EmitterBuilder[Boolean, R] = builder.map(e => e.currentTarget.asInstanceOf[html.Input].checked)
   }
 
-  implicit class TypedElements[O <: Element, R](val builder: EmitterBuilder[O, R]) extends AnyVal {
+  @inline implicit class TypedElements[O <: Element, R](val builder: EmitterBuilder[O, R]) extends AnyVal {
     def asHtml: EmitterBuilder[html.Element, R] = builder.map(_.asInstanceOf[html.Element])
     def asSvg: EmitterBuilder[svg.Element, R] = builder.map(_.asInstanceOf[svg.Element])
   }
 
-  implicit class TypedElementTuples[E <: Element, R](val builder: EmitterBuilder[(E,E), R]) extends AnyVal {
+  @inline implicit class TypedElementTuples[E <: Element, R](val builder: EmitterBuilder[(E,E), R]) extends AnyVal {
     def asHtml: EmitterBuilder[(html.Element, html.Element), R] = builder.map(_.asInstanceOf[(html.Element, html.Element)])
     def asSvg: EmitterBuilder[(svg.Element, svg.Element), R] = builder.map(_.asInstanceOf[(svg.Element, svg.Element)])
   }
 
-  implicit class ModifierActions[O](val builder: EmitterBuilder[O, VDomModifier]) extends AnyVal {
+  @inline implicit class ModifierActions[O](val builder: EmitterBuilder[O, VDomModifier]) extends AnyVal {
     def withLatest[T](emitter: EmitterBuilder[T, VDomModifier]): EmitterBuilder[(O, T), VDomModifier] = new CustomEmitterBuilder[(O, T), VDomModifier]({ sink =>
       IO {
         var lastValue: js.UndefOr[T] = js.undefined
@@ -94,7 +94,7 @@ object EmitterBuilder {
       }
     })
 
-    def useLatest[T](emitter: EmitterBuilder[T, VDomModifier]): EmitterBuilder[T, VDomModifier] = withLatest(emitter).map(_._2)
+    @inline def useLatest[T](emitter: EmitterBuilder[T, VDomModifier]): EmitterBuilder[T, VDomModifier] = withLatest(emitter).map(_._2)
   }
 }
 
@@ -119,29 +119,29 @@ trait AsyncEmitterBuilder[+O, +R] extends EmitterBuilder[O, R] { self =>
   }
 }
 
-final class CustomEmitterBuilder[E, +R] private[outwatch](create: Observer[E] => R) extends SyncEmitterBuilder[E, R] {
+@inline final class CustomEmitterBuilder[E, +R] private[outwatch](create: Observer[E] => R) extends SyncEmitterBuilder[E, R] {
   def transform[T](tr: Observable[E] => Observable[T]): EmitterBuilder[T, R] = new TransformingEmitterBuilder[E, T, R](tr, create)
   def transformSync[T](tr: Option[E] => Option[T]): SyncEmitterBuilder[T, R] = new FunctionEmitterBuilder[E, T, R](tr, create)
   def -->(observer: Observer[E]): R = create(observer)
 }
 
-final class FunctionEmitterBuilder[E, +O, +R] private[outwatch](transformer: Option[E] => Option[O], create: Observer[E] => R) extends SyncEmitterBuilder[O, R] {
+@inline final class FunctionEmitterBuilder[E, +O, +R] private[outwatch](transformer: Option[E] => Option[O], create: Observer[E] => R) extends SyncEmitterBuilder[O, R] {
   def transform[T](tr: Observable[O] => Observable[T]): EmitterBuilder[T, R] = new TransformingEmitterBuilder[O, T, R](tr, observer => create(new ConnectableObserver[E](Sink.fromFunction(e => transformer(Some(e)).foreach(observer.onNext(_))), observer.connect()(_))))
   def transformSync[T](tr: Option[O] => Option[T]): SyncEmitterBuilder[T, R] = new FunctionEmitterBuilder(transformer andThen tr, create)
   def -->(observer: Observer[O]): R = create(observer.redirectMapMaybe(e => transformer(Some(e))))
 }
 
-final class TransformingEmitterBuilder[E, +O, +R] private[outwatch](transformer: Observable[E] => Observable[O], create: ConnectableObserver[E] => R) extends AsyncEmitterBuilder[O, R] {
+@inline final class TransformingEmitterBuilder[E, +O, +R] private[outwatch](transformer: Observable[E] => Observable[O], create: ConnectableObserver[E] => R) extends AsyncEmitterBuilder[O, R] {
   def transform[T](tr: Observable[O] => Observable[T]): EmitterBuilder[T, R] = new TransformingEmitterBuilder(transformer andThen tr, create)
   def -->(observer: Observer[O]): R = create(observer.redirect(transformer))
 }
 
-final class ObservableEmitterBuilder[+E, +R] private[outwatch](observable: Observable[E], create: (Scheduler => Cancelable) => R) extends AsyncEmitterBuilder[E, R] {
+@inline final class ObservableEmitterBuilder[+E, +R] private[outwatch](observable: Observable[E], create: (Scheduler => Cancelable) => R) extends AsyncEmitterBuilder[E, R] {
   def transform[T](tr: Observable[E] => Observable[T]): EmitterBuilder[T, R] = new ObservableEmitterBuilder(tr(observable), create)
   def -->(observer: Observer[E]): R = create(implicit scheduler => observable.subscribe(observer))
 }
 
-final class EmptyEmitterBuilder[R] private[outwatch](empty: R) extends SyncEmitterBuilder[Nothing, R] {
+@inline final class EmptyEmitterBuilder[R] private[outwatch](empty: R) extends SyncEmitterBuilder[Nothing, R] {
   override def transformSync[T](f: Option[Nothing] => Option[T]): SyncEmitterBuilder[T, R] = this
   override def transform[T](tr: Observable[Nothing] => Observable[T]): EmitterBuilder[T, R] = this
   override def -->(observer: Observer[Nothing]): R = empty

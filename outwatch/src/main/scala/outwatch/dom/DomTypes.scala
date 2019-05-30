@@ -36,8 +36,8 @@ private[outwatch] object CodecBuilder {
 private[outwatch] trait TagBuilder extends builders.HtmlTagBuilder[TagBuilder.Tag, dom.html.Element] with builders.SvgTagBuilder[TagBuilder.Tag, dom.svg.Element] {
   // we can ignore information about void tags here, because snabbdom handles this automatically for us based on the tagname.
   //TODO: add element type to VTree for typed interface
-  protected override def htmlTag[Ref <: dom.html.Element](tagName: String, void: Boolean): HtmlVNode = HtmlVNode(tagName, js.Array())
-  protected override def svgTag[Ref <: dom.svg.Element](tagName: String, void: Boolean): SvgVNode = SvgVNode(tagName, js.Array())
+  @inline protected override def htmlTag[Ref <: dom.html.Element](tagName: String, void: Boolean): HtmlVNode = HtmlVNode(tagName, js.Array())
+  @inline protected override def svgTag[Ref <: dom.svg.Element](tagName: String, void: Boolean): SvgVNode = SvgVNode(tagName, js.Array())
 }
 
 private[outwatch] object TagBuilder {
@@ -88,10 +88,10 @@ trait HtmlAttrs
   with builders.ReflectedHtmlAttrBuilder[BuilderTypes.Property]
   with builders.PropBuilder[BuilderTypes.Property] {
 
-  override protected def htmlAttr[V](key: String, codec: codecs.Codec[V, String]): BasicAttrBuilder[V] =
+  @inline override protected def htmlAttr[V](key: String, codec: codecs.Codec[V, String]): BasicAttrBuilder[V] =
     new BasicAttrBuilder(key, CodecBuilder.encodeAttribute(codec))
 
-  override protected def reflectedAttr[V, DomPropV](
+  @inline override protected def reflectedAttr[V, DomPropV](
     attrKey: String,
     propKey: String,
     attrCodec: codecs.Codec[V, String],
@@ -99,7 +99,7 @@ trait HtmlAttrs
   ): PropBuilder[V] = new PropBuilder(propKey, propCodec.encode)
   //or: new BasicAttrBuilder(attrKey, CodecBuilder.encodeAttribute(attrCodec))
 
-  override protected def prop[V, DomV](key: String, codec: codecs.Codec[V, DomV]): PropBuilder[V] =
+  @inline override protected def prop[V, DomV](key: String, codec: codecs.Codec[V, DomV]): PropBuilder[V] =
     new PropBuilder(key, codec.encode)
 
   // super.className.accum(" ") would have been nicer, but we can't do super.className on a lazy val
@@ -112,7 +112,7 @@ trait SvgAttrs
   with builders.SvgAttrBuilder[BasicAttrBuilder] {
 
   // According to snabbdom documentation, the namespace can be ignore as it is handled automatically.
-  override protected def svgAttr[V](key: String, codec: codecs.Codec[V, String], namespace: Option[String]): BasicAttrBuilder[V] =
+  @inline override protected def svgAttr[V](key: String, codec: codecs.Codec[V, String], namespace: Option[String]): BasicAttrBuilder[V] =
     new BasicAttrBuilder(key, CodecBuilder.encodeAttribute(codec))
 }
 
@@ -121,7 +121,7 @@ trait Events
   extends eventProps.HTMLElementEventProps[BuilderTypes.EventEmitter]
   with builders.EventPropBuilder[BuilderTypes.EventEmitter, dom.Event] {
 
-  override def eventProp[V <: dom.Event](key: String): BuilderTypes.EventEmitter[V] =  EmitterBuilder[V](key)
+  @inline override def eventProp[V <: dom.Event](key: String): BuilderTypes.EventEmitter[V] =  EmitterBuilder[V](key)
 }
 
 
@@ -129,7 +129,7 @@ trait Events
 
 private[outwatch] abstract class ObservableEventPropBuilder(target: dom.EventTarget)
   extends builders.EventPropBuilder[Observable, dom.Event] {
-  override def eventProp[V <: dom.Event](key: String): Observable[V] = Observable.create(Unbounded) { obs =>
+  @inline override def eventProp[V <: dom.Event](key: String): Observable[V] = Observable.create(Unbounded) { obs =>
     val eventHandler: js.Function1[V, Ack] = obs.onNext _
     target.addEventListener(key, eventHandler)
     Cancelable(() => target.removeEventListener(key, eventHandler))
@@ -147,9 +147,9 @@ abstract class DocumentEvents
 // Styles
 
 private[outwatch] trait SimpleStyleBuilder extends builders.StyleBuilders[Style] {
-  override protected def buildDoubleStyleSetter(style: keys.Style[Double], value: Double): Style = style := value
-  override protected def buildIntStyleSetter(style: keys.Style[Int], value: Int): Style = style := value
-  override protected def buildStringStyleSetter(style: keys.Style[_], value: String): Style = new BasicStyleBuilder[Any](style.cssName) := value
+  @inline override protected def buildDoubleStyleSetter(style: keys.Style[Double], value: Double): Style = style := value
+  @inline override protected def buildIntStyleSetter(style: keys.Style[Int], value: Int): Style = style := value
+  @inline override protected def buildStringStyleSetter(style: keys.Style[_], value: String): Style = new BasicStyleBuilder[Any](style.cssName) := value
 }
 
 trait Styles

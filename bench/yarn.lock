@@ -3530,9 +3530,9 @@ signal-exit@^3.0.0:
   resolved "https://registry.yarnpkg.com/signal-exit/-/signal-exit-3.0.2.tgz#b5fdc08f1287ea1178628e415e25132b73646c6d"
   integrity sha1-tf3AjxKH6hF4Yo5BXiUTK3NkbG0=
 
-"snabbdom@git://github.com/cornerman/snabbdom.git#semver:0.7.3":
+"snabbdom@git://github.com/cornerman/snabbdom.git#b2dba3b":
   version "0.7.3"
-  resolved "git://github.com/cornerman/snabbdom.git#464535dc487f551a1ba48004a47038bf78b5ce1f"
+  resolved "git://github.com/cornerman/snabbdom.git#b2dba3b802c6db25460222ff4fe6e888a8f628c8"
 
 snapdragon-node@^2.0.1:
   version "2.1.1"

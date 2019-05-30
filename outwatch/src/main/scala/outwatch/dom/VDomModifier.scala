@@ -77,31 +77,31 @@ final case class SchedulerAction(action: Scheduler => VDomModifier) extends VDom
 final case class StringVNode(text: String) extends VDomModifier
 
 sealed trait VNode extends VDomModifier {
-  def apply(args: VDomModifier*): VNode
-  def prepend(args: VDomModifier*): VNode
+  @inline def apply(args: VDomModifier*): VNode
+  @inline def prepend(args: VDomModifier*): VNode
 }
 sealed trait BasicVNode extends VNode {
   def nodeType: String
   def modifiers: js.Array[VDomModifier]
-  def apply(args: VDomModifier*): BasicVNode
-  def prepend(args: VDomModifier*): BasicVNode
-  def thunk(key: Key.Value)(arguments: Any*)(renderFn: => VDomModifier): ThunkVNode = ThunkVNode(this, key, arguments.toJSArray, () => renderFn)
-  def thunkConditional(key: Key.Value)(shouldRender: Boolean)(renderFn: => VDomModifier): ConditionalVNode = ConditionalVNode(this, key, shouldRender, () => renderFn)
+  @inline def apply(args: VDomModifier*): BasicVNode
+  @inline def prepend(args: VDomModifier*): BasicVNode
+  @inline def thunk(key: Key.Value)(arguments: Any*)(renderFn: => VDomModifier): ThunkVNode = ThunkVNode(this, key, arguments.toJSArray, () => renderFn)
+  @inline def thunkConditional(key: Key.Value)(shouldRender: Boolean)(renderFn: => VDomModifier): ConditionalVNode = ConditionalVNode(this, key, shouldRender, () => renderFn)
   @inline def thunkStatic(key: Key.Value)(renderFn: => VDomModifier): ConditionalVNode = thunkConditional(key)(false)(renderFn)
 }
-final case class ThunkVNode(baseNode: BasicVNode, key: Key.Value, arguments: js.Array[Any], renderFn: () => VDomModifier) extends VNode {
-  def apply(args: VDomModifier*): ThunkVNode = copy(baseNode = baseNode(args))
-  def prepend(args: VDomModifier*): ThunkVNode = copy(baseNode = baseNode.prepend(args))
+@inline final case class ThunkVNode(baseNode: BasicVNode, key: Key.Value, arguments: js.Array[Any], renderFn: () => VDomModifier) extends VNode {
+  @inline def apply(args: VDomModifier*): ThunkVNode = copy(baseNode = baseNode(args))
+  @inline def prepend(args: VDomModifier*): ThunkVNode = copy(baseNode = baseNode.prepend(args))
 }
-final case class ConditionalVNode(baseNode: BasicVNode, key: Key.Value, shouldRender: Boolean, renderFn: () => VDomModifier) extends VNode {
-  def apply(args: VDomModifier*): ConditionalVNode = copy(baseNode = baseNode(args))
-  def prepend(args: VDomModifier*): ConditionalVNode = copy(baseNode = baseNode.prepend(args))
+@inline final case class ConditionalVNode(baseNode: BasicVNode, key: Key.Value, shouldRender: Boolean, renderFn: () => VDomModifier) extends VNode {
+  @inline def apply(args: VDomModifier*): ConditionalVNode = copy(baseNode = baseNode(args))
+  @inline def prepend(args: VDomModifier*): ConditionalVNode = copy(baseNode = baseNode.prepend(args))
 }
-final case class HtmlVNode(nodeType: String, modifiers: js.Array[VDomModifier]) extends BasicVNode {
-  def apply(args: VDomModifier*): HtmlVNode = copy(modifiers = appendSeq(modifiers, args))
-  def prepend(args: VDomModifier*): HtmlVNode = copy(modifiers = prependSeq(modifiers, args))
+@inline final case class HtmlVNode(nodeType: String, modifiers: js.Array[VDomModifier]) extends BasicVNode {
+  @inline def apply(args: VDomModifier*): HtmlVNode = copy(modifiers = appendSeq(modifiers, args))
+  @inline def prepend(args: VDomModifier*): HtmlVNode = copy(modifiers = prependSeq(modifiers, args))
 }
-final case class SvgVNode(nodeType: String, modifiers: js.Array[VDomModifier]) extends BasicVNode {
-  def apply(args: VDomModifier*): SvgVNode = copy(modifiers = appendSeq(modifiers, args))
-  def prepend(args: VDomModifier*): SvgVNode = copy(modifiers = prependSeq(modifiers, args))
+@inline final case class SvgVNode(nodeType: String, modifiers: js.Array[VDomModifier]) extends BasicVNode {
+  @inline def apply(args: VDomModifier*): SvgVNode = copy(modifiers = appendSeq(modifiers, args))
+  @inline def prepend(args: VDomModifier*): SvgVNode = copy(modifiers = prependSeq(modifiers, args))
 }
