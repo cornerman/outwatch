@@ -75,6 +75,7 @@ private[outwatch] object SeparatedModifiers {
         hasOnlyTextChildren = hasOnlyTextChildren && proxy.data.isEmpty && proxy.text.isDefined
         val proxies = assureProxies()
         proxies += proxy
+        proxy.keep = true // tell our snabbdom-fork that this is a node that will be rendered. If it already ocurrs in the domm. not needed for proxy.elm == js.undefined, but does not hurt to set it, saves a check.
         ()
       case a : BasicAttr =>
         val attrs = assureAttrs()
