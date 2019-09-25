@@ -73,3 +73,24 @@ object Subscription {
     @inline def cancel(subscription: Subscription): Unit = subscription.cancel()
   }
 }
+
+trait FiniteSubscription extends Subscription
+object FiniteSubscription {
+  object Sync extends FiniteSubscription {
+    def cancel() = ()
+  }
+  trait Async extends FiniteSubscription {
+    def completed(callback: () => Unit): Subscription
+  }
+
+  trait AsyncCompleter extends Async {
+    def onComplete: () => Unit
+  }
+
+  @inline def AsyncCompleter(subscription: () => Unit): AsyncCompleter = new AsyncCompleter {
+    var subscribers = js.Array[() => Unit]
+    var completed = false
+    def onComplete: () => Unit =
+    def async: Async
+  }
+}

@@ -3,7 +3,7 @@ package outwatch.reactive
 import outwatch.effect._
 
 import cats.{ MonoidK, Functor, FunctorFilter, Eq }
-import cats.effect.{ Effect, IO }
+import cats.effect.{ Effect, IO, Sync, Async }
 
 import scala.scalajs.js
 import scala.util.{ Success, Failure, Try }
@@ -27,23 +27,37 @@ object SourceStream {
   // want to do in this API.
   import ExecutionContext.Implicits.global
 
-  object Empty extends SourceStream[Nothing] {
+  object Empty extends Finite[Nothing] {
     @inline def subscribe[G[_]: Sink](sink: G[_ >: Nothing]): Subscription = Subscription.empty
+  }
+
+  class Finite[T] extends SourceStream[T] {
+    @inline def subscribe[G[_]: Sink](sink: G[_ >: Nothing]): Subscription = subscribeFinished(sink)
+    def subscribeFinite[G[_]: Sink](sink: G[_ >: Nothing]): FiniteSubscription
+  }
+
+  class Single[T] extends Finite[T] {
+    def subscribeFinite[G[_]: Sink](sink: G[_ >: Nothing]): FiniteSubscription = {
+      recovered(Sink[G].onNext(sink)(value), Sink[G].onError(sink)(_))
+      FiniteSubscription.Sync
+    }
+
+    def value: T
   }
 
   @inline def empty = Empty
 
-  def apply[T](value: T): SourceStream[T] = new SourceStream[T] {
-    def subscribe[G[_]: Sink](sink: G[_ >: T]): Subscription = {
+  def apply[T](value: T): Finite[T] = new Finite[T] {
+    def subscribeFinite[G[_]: Sink](sink: G[_ >: T]): FiniteSubscription = {
       Sink[G].onNext(sink)(value)
-      Subscription.empty
+      FiniteSubscription.Sync
     }
   }
 
-  def fromIterable[T](values: Iterable[T]): SourceStream[T] = new SourceStream[T] {
-    def subscribe[G[_]: Sink](sink: G[_ >: T]): Subscription = {
+  def fromIterable[T](values: Iterable[T]): Finite[T] = new Finite[T] {
+    def subscribeFinite[G[_]: Sink](sink: G[_ >: T]): FiniteSubscription = {
       values.foreach(Sink[G].onNext(sink))
-      Subscription.empty
+      FiniteSubscription.Sync
     }
   }
 
@@ -55,15 +69,32 @@ object SourceStream {
     def subscribe[G[_]: Sink](sink: G[_ >: A]): Subscription = produce(LiftSink[F].lift(sink))
   }
 
-  def fromSync[F[_]: RunSyncEffect, A](effect: F[A]): SourceStream[A] = new SourceStream[A] {
-    def subscribe[G[_]: Sink](sink: G[_ >: A]): Subscription = {
+  def fromSync[F[_]: RunSyncEffect, A](effect: F[A]): Finite[A] = new Finite[A] {
+    def subscribeFinite[G[_]: Sink](sink: G[_ >: A]): FiniteSubscription = {
       recovered(Sink[G].onNext(sink)(RunSyncEffect[F].unsafeRun(effect)), Sink[G].onError(sink)(_))
-      Subscription.empty
+      FiniteSubscription.Sync
     }
   }
 
-  def fromAsync[F[_]: Effect, A](effect: F[A]): SourceStream[A] = new SourceStream[A] {
-    def subscribe[G[_]: Sink](sink: G[_ >: A]): Subscription = {
+  def fromFuture[A](future: => Future[A]): Finite[A] = fromFutureF(SyncIO(future))
+
+  def fromFutureF[F[_] : RunSyncEffect, A](future: F[Future[A]]): Finite[A] = new Finite[A] {
+    def subscribeFinite[G[_]: Sink](sink: G[_ >: A]): FiniteSubscription = {
+      var isCancel = false
+
+      RunSyncEffect[F].unsafeRun(future).onComplete { either =>
+        if (!isCancel) either match {
+          case Success(value) => Sink[G].onNext(sink)(value)
+          case Failure(error) => Sink[G].onError(sink)(error)
+        }
+      }
+
+      Subscription(() => isCancel = true)
+    }
+  }
+
+  def fromAsync[F[_]: Effect, A](effect: F[A]): Finite[A] = fromFutureF(SyncIO(runEffectToFuture(effect)))
+    def subscribeFinite[G[_]: Sink](sink: G[_ >: A]): FiniteSubscription = {
       //TODO: proper cancel effects?
       var isCancel = false
 
@@ -74,22 +105,7 @@ object SourceStream {
         }
       }).unsafeRunSync()
 
-      Subscription(() => isCancel = true)
-    }
-  }
-
-  def fromFuture[A](future: Future[A]): SourceStream[A] = new SourceStream[A] {
-    def subscribe[G[_]: Sink](sink: G[_ >: A]): Subscription = {
-      var isCancel = false
-
-      future.onComplete { either =>
-        if (!isCancel) either match {
-          case Success(value) => Sink[G].onNext(sink)(value)
-          case Failure(error) => Sink[G].onError(sink)(error)
-        }
-      }
-
-      Subscription(() => isCancel = true)
+      FiniteSubscription.Async(() => isCancel = true, future: Future
     }
   }
 
@@ -604,6 +620,7 @@ object SourceStream {
     @inline def recover(f: PartialFunction[Throwable, A]): SourceStream[A] = SourceStream.recover(source)(f)
     @inline def recoverOption(f: PartialFunction[Throwable, Option[A]]): SourceStream[A] = SourceStream.recoverOption(source)(f)
     @inline def share: SourceStream[A] = SourceStream.share(source)
+    @inline def failed: SourceStream[Throwable] = SourceStream.failed(source)
     @inline def prepend(value: A): SourceStream[A] = SourceStream.prepend(source)(value)
     @inline def prependSync[A, F[_] : RunSyncEffect](value: F[A]): SourceStream[A] = SourceStream.prependSync(source)(value)
     @inline def prependAsync[A, F[_] : Effect](value: F[A]): SourceStream[A] = SourceStream.prependAsync(source)(value)
