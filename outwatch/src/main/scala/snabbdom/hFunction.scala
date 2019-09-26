@@ -192,6 +192,8 @@ trait VNodeProxy extends js.Object {
   var key: js.UndefOr[DataObject.KeyValue] = js.undefined
   var listener: js.UndefOr[js.Any] = js.undefined
 
+  var keep: js.UndefOr[Boolean] = js.undefined
+
   var _id: js.UndefOr[Int] = js.undefined
   var _unmount: js.UndefOr[Hooks.HookSingleFn] = js.undefined
   var _update: js.UndefOr[js.Function1[VNodeProxy, Unit]] = js.undefined
@@ -211,6 +213,7 @@ object VNodeProxy {
     target.text = source.text
     target.elm = source.elm
     target.listener = source.listener
+    target.keep = source.keep
     target._id = source._id
     target._unmount = source._unmount
   }
