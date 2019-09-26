@@ -44,6 +44,10 @@ object Subscription {
       }
   }
 
+  trait Finite extends Subscription {
+    def completed(onComplete: () => Unit): Subscription
+  }
+
   object Empty extends Subscription {
     @inline def cancel(): Unit = ()
   }
@@ -62,7 +66,21 @@ object Subscription {
   }
 
   @inline def builder(): Builder = new Builder
+
   @inline def variable(): Variable = new Variable
+
+  def finite(subscription: Subscription, completedSource: SourceStream[Unit]): Finite = new Finite {
+    @inline def cancel() = subscription.cancel()
+    def completed(f: () => Unit) = completedSource.take(1).foreach(f)
+  }
+
+  def finiteCompleted: Finite = new Finite {
+    @inline def cancel() = ()
+    def completed(f: () => Unit) = {
+      f()
+      Subscription.empty
+    }
+  }
 
   implicit object monoid extends Monoid[Subscription] {
     @inline def empty = Subscription.empty

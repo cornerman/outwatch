@@ -14,10 +14,6 @@ import scala.concurrent.duration.FiniteDuration
 trait SourceStream[+A] {
   //TODO: def subscribe[G[_]: Sink, F[_] : Sync](sink: G[_ >: A]): F[Subscription]
   def subscribe[G[_]: Sink](sink: G[_ >: A]): Subscription
-
-  @inline final def subscribe(): Subscription = subscribe(SinkObserver.empty)
-
-  @inline final def foreach(f: A => Unit): Subscription = subscribe(SinkObserver.create(f))
 }
 object SourceStream {
 
@@ -31,19 +27,23 @@ object SourceStream {
     @inline def subscribe[G[_]: Sink](sink: G[_ >: Nothing]): Subscription = Subscription.empty
   }
 
+  class Finite[+T] extends SourceStream[T] {
+    def subscribe[G[_]: Sink](sink: G[_ >: A]): Subscription.Finite
+  }
+
   @inline def empty = Empty
 
-  def apply[T](value: T): SourceStream[T] = new SourceStream[T] {
+  def apply[T](value: T): SourceStream[T] = new Finite[T] {
     def subscribe[G[_]: Sink](sink: G[_ >: T]): Subscription = {
       Sink[G].onNext(sink)(value)
-      Subscription.empty
+      Subscription.finiteCompleted
     }
   }
 
   def fromIterable[T](values: Iterable[T]): SourceStream[T] = new SourceStream[T] {
     def subscribe[G[_]: Sink](sink: G[_ >: T]): Subscription = {
       values.foreach(Sink[G].onNext(sink))
-      Subscription.empty
+      Subscription.finiteCompleted
     }
   }
 
@@ -51,14 +51,14 @@ object SourceStream {
 
   @inline def create[A](produce: SinkObserver[A] => Subscription): SourceStream[A] = createLift[SinkObserver, A](produce)
 
-  def createLift[F[_]: Sink: LiftSink, A](produce: F[_ >: A] => Subscription): SourceStream[A] = new SourceStream[A] {
+  def createLift[F[_]: Sink: LiftSink, A](produce: F[_ >: A] => Subscription): SourceStream[A] = new Finite[A] {
     def subscribe[G[_]: Sink](sink: G[_ >: A]): Subscription = produce(LiftSink[F].lift(sink))
   }
 
-  def fromSync[F[_]: RunSyncEffect, A](effect: F[A]): SourceStream[A] = new SourceStream[A] {
+  def fromSync[F[_]: RunSyncEffect, A](effect: F[A]): SourceStream[A] = new Finite[A] {
     def subscribe[G[_]: Sink](sink: G[_ >: A]): Subscription = {
       recovered(Sink[G].onNext(sink)(RunSyncEffect[F].unsafeRun(effect)), Sink[G].onError(sink)(_))
-      Subscription.empty
+      Subscription.finiteCompleted
     }
   }
 
@@ -615,6 +615,8 @@ object SourceStream {
     @inline def drop(num: Int): SourceStream[A] = SourceStream.drop(source)(num)
     @inline def dropWhile(predicate: A => Boolean): SourceStream[A] = SourceStream.dropWhile(source)(predicate)
     @inline def withDefaultSubscription[G[_] : Sink](sink: G[A]): SourceStream[A] = SourceStream.withDefaultSubscription(source)(sink)
+    @inline def subscribe(): Subscription = source.subscribe(SinkObserver.empty)
+    @inline def foreach(f: A => Unit): Subscription = source.subscribe(SinkObserver.create(f))
   }
 
   @inline private def recovered[T](action: => Unit, onError: Throwable => Unit) = try action catch { case NonFatal(t) => onError(t) }
