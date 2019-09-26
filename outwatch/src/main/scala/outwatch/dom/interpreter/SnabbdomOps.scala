@@ -157,7 +157,6 @@ private[outwatch] object SnabbdomOps {
       )
 
       def start(): Unit = {
-        resetTimeout()
         nativeModifiers.subscribables.foreach { subscribable =>
           subscribable.subscribe(patchSink)
         }
