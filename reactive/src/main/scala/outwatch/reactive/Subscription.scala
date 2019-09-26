@@ -69,17 +69,19 @@ object Subscription {
 
   @inline def variable(): Variable = new Variable
 
-  def finite(subscription: Subscription, completedSource: SourceStream[Unit]): Finite = new Finite {
-    @inline def cancel() = subscription.cancel()
-    def completed(f: () => Unit) = completedSource.take(1).foreach(f)
+  def finite(f: SinkObserver[Unit] => subscription: Subscription), completion: SourceStream[Unit]): FiniteBuilder = {
+    val completion = new SinkSourceVariable[A,A](identity)
+    val subscription = f(handler)
+
+    new Finite {
+      def cancel() = subscription.cancel()
+      def completed(f: () => Unit) = completion.head.foreach(f)
+    }
   }
 
-  def finiteCompleted: Finite = new Finite {
-    @inline def cancel() = ()
-    def completed(f: () => Unit) = {
-      f()
-      Subscription.empty
-    }
+  val finiteCompleted: Finite = new Finite {
+    def cancel() = ()
+    def completed(f: () => Unit) = { f(); Subscription.empty }
   }
 
   implicit object monoid extends Monoid[Subscription] {

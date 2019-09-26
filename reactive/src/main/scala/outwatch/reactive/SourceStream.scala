@@ -62,15 +62,19 @@ object SourceStream {
     }
   }
 
-  def fromAsync[F[_]: Effect, A](effect: F[A]): SourceStream[A] = new SourceStream[A] {
-    def subscribe[G[_]: Sink](sink: G[_ >: A]): Subscription = {
+  def fromAsync[F[_]: Effect, A](effect: F[A]): SourceStream[A] = new Finite[A] {
+    def subscribe[G[_]: Sink](sink: G[_ >: A]): Subscription.Finite = Subscription.finite { completion =>
       //TODO: proper cancel effects?
       var isCancel = false
 
       Effect[F].runAsync(effect)(either => IO {
-        if (!isCancel) either match {
-          case Right(value) => Sink[G].onNext(sink)(value)
-          case Left(error)  => Sink[G].onError(sink)(error)
+        if (!isCancel) {
+          either match {
+            case Right(value) => Sink[G].onNext(sink)(value)
+            case Left(error)  => Sink[G].onError(sink)(error)
+          }
+
+          completion.onNext()
         }
       }).unsafeRunSync()
 
@@ -78,14 +82,18 @@ object SourceStream {
     }
   }
 
-  def fromFuture[A](future: Future[A]): SourceStream[A] = new SourceStream[A] {
-    def subscribe[G[_]: Sink](sink: G[_ >: A]): Subscription = {
+  def fromFuture[A](future: Future[A]): SourceStream[A] = new Finite[A] {
+    def subscribe[G[_]: Sink](sink: G[_ >: A]): Subscription.Finite = Subscription.finite { completion =>
       var isCancel = false
 
       future.onComplete { either =>
-        if (!isCancel) either match {
-          case Success(value) => Sink[G].onNext(sink)(value)
-          case Failure(error) => Sink[G].onError(sink)(error)
+        if (!isCancel) {
+          either match {
+            case Success(value) => Sink[G].onNext(sink)(value)
+            case Failure(error) => Sink[G].onError(sink)(error)
+          }
+
+          completion.onNext()
         }
       }
 
@@ -123,7 +131,7 @@ object SourceStream {
     }
   }
 
-  def concatFuture[T](values: Future[T]*): SourceStream[T] = fromIterable(values).concatMapFuture(identity)
+  def concat[T](values: Future[T]*): SourceStream[T] = fromIterable(values).concatMapFuture(identity)
 
   def concatAsync[F[_] : Effect, T](effects: F[T]*): SourceStream[T] = fromIterable(effects).concatMapAsync(identity)
 
@@ -505,6 +513,8 @@ object SourceStream {
     }
   }
 
+  @inline def head[F[_]: Source, A](source: F[A]): SourceStream[A] = take(1)
+
   //TODO write as explicit SinkObserver instead of filter, more readable.
   def take[F[_]: Source, A](source: F[A])(num: Int): SourceStream[A] = {
     if (num <= 0) SourceStream.empty
@@ -593,8 +603,7 @@ object SourceStream {
     @inline def delayMillis(millis: Int): SourceStream[A] = SourceStream.delayMillis(source)(millis)
     @inline def distinctOnEquals: SourceStream[A] = SourceStream.distinctOnEquals(source)
     @inline def distinct(implicit eq: Eq[A]): SourceStream[A] = SourceStream.distinct(source)
-    @inline def concatMapFuture[B](f: A => Future[B]): SourceStream[B] = SourceStream.concatMapFuture(source)(f)
-    @inline def concatMapAsync[G[_]: Effect, B](f: A => G[B]): SourceStream[B] = SourceStream.concatMapAsync(source)(f)
+    @inline def concatMap[B](f: A => Finite[B]): SourceStream[B] = SourceStream.concatMap(source)(f)
     @inline def mapSync[G[_]: RunSyncEffect, B](f: A => G[B]): SourceStream[B] = SourceStream.mapSync(source)(f)
     @inline def map[B](f: A => B): SourceStream[B] = SourceStream.map(source)(f)
     @inline def mapTry[B](f: A => Try[B]): SourceStream[B] = SourceStream.mapTry(source)(f)
