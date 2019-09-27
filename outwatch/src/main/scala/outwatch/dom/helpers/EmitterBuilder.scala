@@ -185,7 +185,7 @@ object EmitterBuilder {
   @inline def fromSource[F[_] : Source, E](source: F[E]): EmitterBuilder[E, VDomModifier] = fromSourceOf[F, E, VDomModifier](source)
 
   def fromEvent[E <: Event](eventType: String): EmitterBuilder.Sync[E, VDomModifier] = apply[E, VDomModifier] { sink =>
-    Emitter(eventType, e => sink.onNext(e.asInstanceOf[E]))
+    new Emitter(eventType, e => sink.onNext(e.asInstanceOf[E]))
   }
 
   @inline def combine[T, R : SubscriptionOwner : Monoid, Exec <: Execution](builders: EmitterBuilderExecution[T, R, Exec]*): EmitterBuilderExecution[T, R, Exec] = combineSeq(builders)

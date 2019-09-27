@@ -61,9 +61,9 @@ private[outwatch] object SnabbdomOps {
      case node: BasicVNode =>
        toRawSnabbdomProxy(node)
      case node: ConditionalVNode =>
-       thunk.conditional(getNamespace(node.baseNode), node.baseNode.nodeType, node.key, () => toRawSnabbdomProxy(node.baseNode(node.renderFn(), Key(node.key))), node.shouldRender)
+       thunk.conditional(getNamespace(node.baseNode), node.baseNode.nodeType, node.key, () => toRawSnabbdomProxy(node.baseNode(node.renderFn(), new Key(node.key))), node.shouldRender)
      case node: ThunkVNode =>
-       thunk(getNamespace(node.baseNode), node.baseNode.nodeType, node.key, () => toRawSnabbdomProxy(node.baseNode(node.renderFn(), Key(node.key))), node.arguments)
+       thunk(getNamespace(node.baseNode), node.baseNode.nodeType, node.key, () => toRawSnabbdomProxy(node.baseNode(node.renderFn(), new Key(node.key))), node.arguments)
    }
 
    private val newNodeId: () => Int = {
@@ -170,12 +170,12 @@ private[outwatch] object SnabbdomOps {
 
       // hooks for subscribing and unsubscribing the streamable content
       prependModifiers = js.Array[StaticVDomModifier](
-        InsertHook { p =>
+        new InsertHook({ p =>
           VNodeProxy.copyInto(p, proxy)
           isActive = true
           start()
-        },
-        PostPatchHook { (o, p) =>
+        }),
+        new PostPatchHook({ (o, p) =>
           VNodeProxy.copyInto(p, proxy)
           proxy._update.foreach(_(proxy))
           if (!NativeModifiers.equalsVNodeIds(o._id, p._id)) {
@@ -186,11 +186,11 @@ private[outwatch] object SnabbdomOps {
           } else {
             stop()
           }
-        },
-        DomUnmountHook { _ =>
+        }),
+        new DomUnmountHook({ _ =>
           isActive = false
           stop()
-        }
+        })
       )
 
       // premature subcription: We will now subscribe, eventhough the node is not yet mounted
@@ -226,17 +226,17 @@ private[outwatch] object SnabbdomOps {
 
       // hooks for subscribing and unsubscribing the streamable content
       val prependModifiers = js.Array[StaticVDomModifier](
-        InsertHook { _ =>
+        new InsertHook({ _ =>
           start()
-        },
-        PostPatchHook { (o, p) =>
+        }),
+        new PostPatchHook({ (o, p) =>
           if (!NativeModifiers.equalsVNodeIds(o._id, p._id)) {
             start()
           }
-        },
-        DomUnmountHook { _ =>
+        }),
+        new DomUnmountHook({ _ =>
           stop()
-        }
+        })
       )
 
       // premature subcription

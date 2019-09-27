@@ -40,14 +40,14 @@ class OutWatchDomSpec extends JSDomAsyncSpec {
 
   "Properties" should "be separated correctly" in {
     val properties = Seq(
-      BasicAttr("hidden", "true"),
-      InitHook(_ => ()),
-      InsertHook(_ => ()),
-      UpdateHook((_,_) => ()),
-      InsertHook(_ => ()),
-      DestroyHook(_ => ()),
-      PrePatchHook((_,_) => ()),
-      PostPatchHook((_,_) => ())
+      new BasicAttr("hidden", "true"),
+      new InitHook(_ => ()),
+      new InsertHook(_ => ()),
+      new UpdateHook((_,_) => ()),
+      new InsertHook(_ => ()),
+      new DestroyHook(_ => ()),
+      new PrePatchHook((_,_) => ()),
+      new PostPatchHook((_,_) => ())
     )
 
     val propertiesArr = new MutableNestedArray[StaticVDomModifier]
@@ -67,12 +67,12 @@ class OutWatchDomSpec extends JSDomAsyncSpec {
 
   "VDomModifiers" should "be separated correctly" in {
     val modifiers = Seq(
-      BasicAttr("class", "red"),
+      new BasicAttr("class", "red"),
       EmptyModifier,
-      Emitter("click", _ => ()),
+      new Emitter("click", _ => ()),
       new StringVNode("Test"),
       div(),
-      CompositeModifier(
+      new CompositeModifier(
         Seq[VDomModifier](
           div(),
           attributes.`class` := "blue",
@@ -96,14 +96,14 @@ class OutWatchDomSpec extends JSDomAsyncSpec {
 
   it should "be separated correctly with children" in {
     val modifiers: Seq[VDomModifier] = Seq(
-      BasicAttr("class","red"),
+      new BasicAttr("class","red"),
       EmptyModifier,
-      Emitter("click", _ => ()),
-      Emitter("input",  _ => ()),
+      new Emitter("click", _ => ()),
+      new Emitter("input",  _ => ()),
       VDomModifier(Observable.empty[VDomModifier]),
       VDomModifier(Observable.empty[VDomModifier]),
-      Emitter("keyup",  _ => ()),
-      StringVNode("text"),
+      new Emitter("keyup",  _ => ()),
+      new StringVNode("text"),
       div()
     )
     val streamable = NativeModifiers.from(modifiers)
@@ -118,15 +118,15 @@ class OutWatchDomSpec extends JSDomAsyncSpec {
 
   it should "be separated correctly with string children" in {
     val modifiers: Seq[VDomModifier] = Seq(
-      BasicAttr("class","red"),
+      new BasicAttr("class","red"),
       EmptyModifier,
-      Emitter("click", _ => ()),
-      Emitter("input",  _ => ()),
-      Emitter("keyup",  _ => ()),
+      new Emitter("click", _ => ()),
+      new Emitter("input",  _ => ()),
+      new Emitter("keyup",  _ => ()),
       VDomModifier(Observable.empty[VDomModifier]),
       VDomModifier(Observable.empty[VDomModifier]),
-      StringVNode("text"),
-      StringVNode("text2")
+      new StringVNode("text"),
+      new StringVNode("text2")
     )
 
     val streamable = NativeModifiers.from(modifiers)
@@ -142,19 +142,19 @@ class OutWatchDomSpec extends JSDomAsyncSpec {
   it should "be separated correctly with children and properties" in {
 
     val modifiers = Seq(
-      BasicAttr("class","red"),
+      new BasicAttr("class","red"),
       EmptyModifier,
-      Emitter("click", _ => ()),
-      Emitter("input", _ => ()),
-      UpdateHook((_,_) => ()),
+      new Emitter("click", _ => ()),
+      new Emitter("input", _ => ()),
+      new UpdateHook((_,_) => ()),
       VDomModifier(Observable.empty[VDomModifier]),
       VDomModifier(Observable.empty[VDomModifier]),
       VDomModifier(Observable.empty[VDomModifier]),
-      Emitter("keyup", _ => ()),
-      InsertHook(_ => ()),
-      PrePatchHook((_,_) => ()),
-      PostPatchHook((_,_) => ()),
-      StringVNode("text")
+      new Emitter("keyup", _ => ()),
+      new InsertHook(_ => ()),
+      new PrePatchHook((_,_) => ()),
+      new PostPatchHook((_,_) => ()),
+      new StringVNode("text")
     )
 
     val streamable = NativeModifiers.from(modifiers)
@@ -207,12 +207,12 @@ class OutWatchDomSpec extends JSDomAsyncSpec {
       div(
         IO {
           list += "attr1"
-          BasicAttr("attr1", "peter")
+          new BasicAttr("attr1", "peter")
         },
         Seq(
           IO {
             list += "attr2"
-            BasicAttr("attr2", "hans")
+            new BasicAttr("attr2", "hans")
           }
         )
       )
@@ -270,9 +270,9 @@ class OutWatchDomSpec extends JSDomAsyncSpec {
 
   it should "keep existing key for child nodes" in {
     val mods = Seq(
-      Key(1234),
+      new Key(1234),
       VDomModifier(Observable.empty[VDomModifier]),
-      div()(Key(5678))
+      div()(new Key(5678))
     )
 
     val streamable = NativeModifiers.from(mods)
@@ -290,7 +290,7 @@ class OutWatchDomSpec extends JSDomAsyncSpec {
 
   "VTrees" should "be constructed correctly" in {
 
-    val attributes = List(BasicAttr("class", "red"), BasicAttr("id", "msg"))
+    val attributes = List(new BasicAttr("class", "red"), new BasicAttr("id", "msg"))
     val message = "Hello"
     val child = span(message)
     val vtree = div(attributes.head, attributes(1), child)
@@ -304,7 +304,7 @@ class OutWatchDomSpec extends JSDomAsyncSpec {
   }
 
   it should "be correctly created with the HyperscriptHelper" in {
-    val attributes = List(BasicAttr("class", "red"), BasicAttr("id", "msg"))
+    val attributes = List(new BasicAttr("class", "red"), new BasicAttr("id", "msg"))
     val message = "Hello"
     val child = span(message)
     val vtree = div(attributes.head, attributes(1), child)
@@ -329,7 +329,7 @@ class OutWatchDomSpec extends JSDomAsyncSpec {
         div(
           IO {
             ioCounter += 1
-            BasicAttr("hans", "")
+            new BasicAttr("hans", "")
           }
         ),
         stringHandler
@@ -367,7 +367,7 @@ class OutWatchDomSpec extends JSDomAsyncSpec {
         div(Seq(
           IO {
             ioCounter += 1
-            BasicAttr("hans", "")
+            new BasicAttr("hans", "")
           }
         )),
         stringHandler
@@ -396,7 +396,7 @@ class OutWatchDomSpec extends JSDomAsyncSpec {
 
     val id = "msg"
     val cls = "red"
-    val attributes = List(BasicAttr("class", cls), BasicAttr("id", id))
+    val attributes = List(new BasicAttr("class", cls), new BasicAttr("id", id))
     val message = "Hello"
     val child = span(message)
     val vtree = div(attributes.head, attributes(1), child)
@@ -1311,12 +1311,12 @@ class OutWatchDomSpec extends JSDomAsyncSpec {
           myHandler.onNext(innerHandler2)
           element.innerHTML shouldBe """<div></div>"""
 
-          myHandler.onNext(CompositeModifier(VDomModifier(innerHandler2) :: Nil))
+          myHandler.onNext(new CompositeModifier(VDomModifier(innerHandler2) :: Nil))
           element.innerHTML shouldBe """<div></div>"""
 
-          myHandler.onNext(CompositeModifier(VDomModifier(innerHandler2) :: Nil))
+          myHandler.onNext(new CompositeModifier(VDomModifier(innerHandler2) :: Nil))
 
-          myHandler.onNext(CompositeModifier(StringVNode("pete") :: VDomModifier(innerHandler2) :: Nil))
+          myHandler.onNext(new CompositeModifier(new StringVNode("pete") :: VDomModifier(innerHandler2) :: Nil))
           element.innerHTML shouldBe """<div>pete</div>"""
 
           innerHandler2.onNext(VDomModifier(id := "dieter", "r"))
@@ -1359,11 +1359,11 @@ class OutWatchDomSpec extends JSDomAsyncSpec {
 
         numPatches shouldBe 0
 
-        myHandler.onNext(innerHandler.prepend(BasicAttr("initial", "2")))
+        myHandler.onNext(innerHandler.prepend(new BasicAttr("initial", "2")))
         element.innerHTML shouldBe """<div initial="2"></div>"""
         numPatches shouldBe 2
 
-        innerHandler.onNext(BasicAttr("attr", "3"))
+        innerHandler.onNext(new BasicAttr("attr", "3"))
         element.innerHTML shouldBe """<div attr="3"></div>"""
         numPatches shouldBe 3
 
@@ -1372,11 +1372,11 @@ class OutWatchDomSpec extends JSDomAsyncSpec {
           element.innerHTML shouldBe """<div>initial3</div>"""
           numPatches shouldBe 5
 
-          myHandler.onNext(CompositeModifier(VDomModifier(innerHandler2.prepend(VDomModifier("initial4"))) :: Nil))
+          myHandler.onNext(new CompositeModifier(VDomModifier(innerHandler2.prepend(VDomModifier("initial4"))) :: Nil))
           element.innerHTML shouldBe """<div>initial4</div>"""
           numPatches shouldBe 7
 
-          myHandler.onNext(CompositeModifier(StringVNode("pete") :: VDomModifier(innerHandler2) :: Nil))
+          myHandler.onNext(new CompositeModifier(new StringVNode("pete") :: VDomModifier(innerHandler2) :: Nil))
           element.innerHTML shouldBe """<div>pete</div>"""
           numPatches shouldBe 8
 
@@ -1417,11 +1417,11 @@ class OutWatchDomSpec extends JSDomAsyncSpec {
 
         numPatches shouldBe 0
 
-        myHandler.onNext(innerHandler.prepend(BasicAttr("initial", "2")))
+        myHandler.onNext(innerHandler.prepend(new BasicAttr("initial", "2")))
         element.innerHTML shouldBe """<div initial="2"></div>"""
         numPatches shouldBe 2
 
-        innerHandler.onNext(BasicAttr("attr", "3"))
+        innerHandler.onNext(new BasicAttr("attr", "3"))
         element.innerHTML shouldBe """<div attr="3"></div>"""
         numPatches shouldBe 3
 
@@ -1430,11 +1430,11 @@ class OutWatchDomSpec extends JSDomAsyncSpec {
           element.innerHTML shouldBe """<div>initial3</div>"""
           numPatches shouldBe 5
 
-          myHandler.onNext(CompositeModifier(VDomModifier(innerHandler2.prepend(VDomModifier("initial4"))) :: Nil))
+          myHandler.onNext(new CompositeModifier(VDomModifier(innerHandler2.prepend(VDomModifier("initial4"))) :: Nil))
           element.innerHTML shouldBe """<div>initial4</div>"""
           numPatches shouldBe 7
 
-          myHandler.onNext(CompositeModifier(StringVNode("pete") :: VDomModifier(innerHandler2) :: Nil))
+          myHandler.onNext(new CompositeModifier(new StringVNode("pete") :: VDomModifier(innerHandler2) :: Nil))
           element.innerHTML shouldBe """<div>pete</div>"""
           numPatches shouldBe 8
 
@@ -1502,11 +1502,11 @@ class OutWatchDomSpec extends JSDomAsyncSpec {
       numPatches shouldBe 0
 
       Handler.createF[IO, VDomModifier].flatMap { innerHandler =>
-      myHandler.onNext(innerHandler.startWith(BasicAttr("initial", "2") :: Nil))
+      myHandler.onNext(innerHandler.startWith(new BasicAttr("initial", "2") :: Nil))
       element.innerHTML shouldBe """<div initial="2"></div>"""
       numPatches shouldBe 2
 
-      innerHandler.onNext(BasicAttr("attr", "3"))
+      innerHandler.onNext(new BasicAttr("attr", "3"))
       element.innerHTML shouldBe """<div attr="3"></div>"""
       numPatches shouldBe 3
 
@@ -1515,11 +1515,11 @@ class OutWatchDomSpec extends JSDomAsyncSpec {
         element.innerHTML shouldBe """<div>initial3</div>"""
         numPatches shouldBe 5
 
-        myHandler.onNext(CompositeModifier(VDomModifier(innerHandler2.prepend(VDomModifier("initial4"))) :: Nil))
+        myHandler.onNext(new CompositeModifier(VDomModifier(innerHandler2.prepend(VDomModifier("initial4"))) :: Nil))
         element.innerHTML shouldBe """<div>initial4</div>"""
         numPatches shouldBe 7
 
-        myHandler.onNext(CompositeModifier(StringVNode("pete") :: VDomModifier(innerHandler2) :: Nil))
+        myHandler.onNext(new CompositeModifier(new StringVNode("pete") :: VDomModifier(innerHandler2) :: Nil))
         element.innerHTML shouldBe """<div>pete</div>"""
         numPatches shouldBe 8
 
@@ -1569,7 +1569,7 @@ class OutWatchDomSpec extends JSDomAsyncSpec {
         outerTriggers.size shouldBe 1
         innerTriggers.size shouldBe 1
 
-        myHandler.onNext(Observable.now(BasicAttr("initial", "2")))
+        myHandler.onNext(Observable.now(new BasicAttr("initial", "2")))
         element.innerHTML shouldBe """<div initial="2"></div>"""
         outerTriggers.size shouldBe 2
         innerTriggers.size shouldBe 1
@@ -1584,7 +1584,7 @@ class OutWatchDomSpec extends JSDomAsyncSpec {
         outerTriggers.size shouldBe 3
         innerTriggers.size shouldBe 2
 
-        innerHandler.onNext(BasicAttr("attr", "3"))
+        innerHandler.onNext(new BasicAttr("attr", "3"))
         element.innerHTML shouldBe """<div attr="3"></div>"""
         outerTriggers.size shouldBe 3
         innerTriggers.size shouldBe 3
@@ -3181,7 +3181,7 @@ class OutWatchDomSpec extends JSDomAsyncSpec {
     }
   }
 
-  it should "work with streams (flatMap)" in {
+  it should "work with streams (switchMap monix)" in {
     val myString: Handler[String] = Handler.unsafe[String]
     val myId: Handler[String] = Handler.unsafe[String]
     val myInner: Handler[String] = Handler.unsafe[String]

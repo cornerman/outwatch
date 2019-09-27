@@ -46,7 +46,7 @@ object ChildCommand {
       def isSaneIndex(index: Int): Boolean = index >= 0 && index < children.length
 
       def replaceByIndex(index: Int, node: VNode): Unit = {
-        children(index) = VNodeProxyNode(SnabbdomOps.toSnabbdom(node))
+        children(index) = new VNodeProxyNode(SnabbdomOps.toSnabbdom(node))
       }
 
       def moveByIndex(fromIndex: Int, toIndex: Int): Unit = {
@@ -58,7 +58,7 @@ object ChildCommand {
 
       def insertByIndex(index: Int, node: VNode): Unit = {
         if (isSaneIndex(index)) {
-          children.insert(index, VNodeProxyNode(SnabbdomOps.toSnabbdom(node)))
+          children.insert(index, new VNodeProxyNode(SnabbdomOps.toSnabbdom(node)))
         }
       }
 
@@ -71,14 +71,14 @@ object ChildCommand {
 
       cmds foreach {
         case Append(node) =>
-          children.push(VNodeProxyNode(SnabbdomOps.toSnabbdom(node)))
+          children.push(new VNodeProxyNode(SnabbdomOps.toSnabbdom(node)))
           ()
         case Prepend(node) =>
-          children.prepend(VNodeProxyNode(SnabbdomOps.toSnabbdom(node)))
+          children.prepend(new VNodeProxyNode(SnabbdomOps.toSnabbdom(node)))
         case ReplaceAll(list) =>
           children.clear()
           list.foreach { node =>
-            children.push(VNodeProxyNode(SnabbdomOps.toSnabbdom(node)))
+            children.push(new VNodeProxyNode(SnabbdomOps.toSnabbdom(node)))
           }
         case Insert(index, node) =>
           insertByIndex(index, node)
@@ -106,7 +106,7 @@ object ChildCommand {
           removeByIndex(idToIndex(id))
       }
 
-      CompositeModifier(children)
+      new CompositeModifier(children)
     }
   }
 }

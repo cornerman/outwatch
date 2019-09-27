@@ -71,10 +71,10 @@ private[outwatch] object SeparatedModifiers {
     }: Hooks.HookPairFn
 
     def append(mod: StaticVDomModifier): Unit = mod match {
-      case VNodeProxyNode(proxy) =>
-        hasOnlyTextChildren = hasOnlyTextChildren && proxy.data.isEmpty && proxy.text.isDefined
+      case p: VNodeProxyNode =>
+        hasOnlyTextChildren = hasOnlyTextChildren && p.proxy.data.isEmpty && p.proxy.text.isDefined
         val proxies = assureProxies()
-        proxies += proxy
+        proxies += p.proxy
         ()
       case a : BasicAttr =>
         val attrs = assureAttrs()
@@ -268,8 +268,8 @@ private[outwatch] object NativeModifiers {
         case c: CompositeModifier => c.modifiers.foreach(append(subscribables, modifiers, _, inStream))
         case h: DomHook if inStream => mirrorStreamedDomHook(h).foreach(appendStatic)
         case mod: StaticVDomModifier => appendStatic(mod)
-        case child: VNode  => appendStatic(VNodeProxyNode(SnabbdomOps.toSnabbdom(child)))
-        case child: StringVNode  => appendStatic(VNodeProxyNode(VNodeProxy.fromString(child.text)))
+        case child: VNode  => appendStatic(new VNodeProxyNode(SnabbdomOps.toSnabbdom(child)))
+        case child: StringVNode  => appendStatic(new VNodeProxyNode(VNodeProxy.fromString(child.text)))
         case m: StreamModifier => appendStream(m)
         case s: SubscriptionModifier => subscribables.push(new Subscribable(_ => s.subscription()))
         case m: SyncEffectModifier => append(subscribables, modifiers, m.unsafeRun(), inStream)
@@ -290,27 +290,28 @@ private[outwatch] object NativeModifiers {
       // if we are streamed in with an insert event, then ignore all update events.
       var triggered = false
       js.Array(
-        InsertHook { p =>
+        new InsertHook({ p =>
           triggered = true
           h.trigger(p)
-        },
-        PostPatchHook { (o, p) =>
+        }),
+        new PostPatchHook({ (o, p) =>
           if (!triggered || !equalsVNodeIds(o._id, p._id)) h.trigger(p)
           triggered = true
         })
+      )
     case h: DomPreUpdateHook =>
       // ignore the next pre-update event, we are streamed into the node with this update
       // trigger on all succeeding pre-update events. if we are streamed in with an insert
       // event, then trigger on next update events as well.
       var triggered = false
       js.Array(
-        InsertHook { _ =>
+        new InsertHook({ _ =>
           triggered = true
-        },
-        PrePatchHook { (o, p) =>
+        }),
+        new PrePatchHook({ (o, p) =>
           if (triggered && equalsVNodeIds(o._id, p._id)) h.trigger(o, p)
           triggered = true
-        }
+        })
       )
     case h: DomUpdateHook =>
       // ignore the next update event, we are streamed into the node with this update
@@ -318,13 +319,13 @@ private[outwatch] object NativeModifiers {
       // event, then trigger on next update events as well.
       var triggered = false
       js.Array(
-        InsertHook { _ =>
+        new InsertHook({ _ =>
           triggered = true
-        },
-        PostPatchHook { (o, p) =>
+        }),
+        new PostPatchHook({ (o, p) =>
           if (triggered && equalsVNodeIds(o._id, p._id)) h.trigger(o, p)
           triggered = true
-        }
+        })
       )
     case h: DomUnmountHook =>
       // we call the unmount hook, whenever this hook is freshly superseded by a new modifier
@@ -335,15 +336,15 @@ private[outwatch] object NativeModifiers {
       var isOpen = true
       js.Array(
         h,
-        InsertHook { _ => triggered = true },
-        UpdateHook { (o, p) =>
+        new InsertHook({ _ => triggered = true }),
+        new UpdateHook({ (o, p) =>
           if (triggered && equalsVNodeIds(o._id, p._id)) isOpen = false
           triggered = true
-        },
-        NextVDomModifier(UpdateHook { (o, p) =>
+        }),
+        new NextVDomModifier(new UpdateHook({ (o, p) =>
           if (isOpen && equalsVNodeIds(o._id, p._id)) h.trigger(p)
           isOpen = true
-        })
+        }))
       )
   }
 

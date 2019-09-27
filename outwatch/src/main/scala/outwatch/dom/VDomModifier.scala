@@ -19,24 +19,24 @@ object VDomModifier {
   @inline def apply[T : Render](t: T): VDomModifier = Render[T].render(t)
 
   @inline def apply(modifier: VDomModifier, modifier2: VDomModifier): VDomModifier =
-    CompositeModifier(js.Array(modifier, modifier2))
+    new CompositeModifier(js.Array(modifier, modifier2))
 
   @inline def apply(modifier: VDomModifier, modifier2: VDomModifier, modifier3: VDomModifier): VDomModifier =
-    CompositeModifier(js.Array(modifier, modifier2, modifier3))
+    new CompositeModifier(js.Array(modifier, modifier2, modifier3))
 
   @inline def apply(modifier: VDomModifier, modifier2: VDomModifier, modifier3: VDomModifier, modifier4: VDomModifier): VDomModifier =
-    CompositeModifier(js.Array(modifier, modifier2, modifier3, modifier4))
+    new CompositeModifier(js.Array(modifier, modifier2, modifier3, modifier4))
 
   @inline def apply(modifier: VDomModifier, modifier2: VDomModifier, modifier3: VDomModifier, modifier4: VDomModifier, modifier5: VDomModifier): VDomModifier =
-    CompositeModifier(js.Array(modifier, modifier2, modifier3, modifier4, modifier5))
+    new CompositeModifier(js.Array(modifier, modifier2, modifier3, modifier4, modifier5))
 
   @inline def apply(modifier: VDomModifier, modifier2: VDomModifier, modifier3: VDomModifier, modifier4: VDomModifier, modifier5: VDomModifier, modifier6: VDomModifier): VDomModifier =
-    CompositeModifier(js.Array(modifier, modifier2, modifier3, modifier4, modifier5, modifier6))
+    new CompositeModifier(js.Array(modifier, modifier2, modifier3, modifier4, modifier5, modifier6))
 
   @inline def apply(modifier: VDomModifier, modifier2: VDomModifier, modifier3: VDomModifier, modifier4: VDomModifier, modifier5: VDomModifier, modifier6: VDomModifier, modifier7: VDomModifier, modifiers: VDomModifier*): VDomModifier =
-    CompositeModifier(js.Array(modifier, modifier2, modifier3, modifier4, modifier5, modifier6, modifier7, CompositeModifier(modifiers)))
+    new CompositeModifier(js.Array(modifier, modifier2, modifier3, modifier4, modifier5, modifier6, modifier7, new CompositeModifier(modifiers)))
 
-  @inline def delay[T : Render](modifier: => T): VDomModifier = SyncEffectModifier(() => VDomModifier(modifier))
+  @inline def delay[T : Render](modifier: => T): VDomModifier = new SyncEffectModifier(() => VDomModifier(modifier))
 
   implicit object monoid extends Monoid[VDomModifier] {
     @inline def empty: VDomModifier = VDomModifier.empty
@@ -52,56 +52,56 @@ object VDomModifier {
 
 sealed trait StaticVDomModifier extends VDomModifier
 
-final case class VNodeProxyNode(proxy: VNodeProxy) extends StaticVDomModifier
+final class VNodeProxyNode(val proxy: VNodeProxy) extends StaticVDomModifier
 
-final case class Key(value: Key.Value) extends StaticVDomModifier
+final class Key(val value: Key.Value) extends StaticVDomModifier
 object Key {
   type Value = DataObject.KeyValue
 }
 
-final case class Emitter(eventType: String, trigger: js.Function1[Event, Unit]) extends StaticVDomModifier
+final class Emitter(val eventType: String, val trigger: js.Function1[Event, Unit]) extends StaticVDomModifier
 
 sealed trait Attr extends StaticVDomModifier
 object Attr {
   type Value = DataObject.AttrValue
 }
-final case class BasicAttr(title: String, value: Attr.Value) extends Attr
-final case class AccumAttr(title: String, value: Attr.Value, accum: (Attr.Value, Attr.Value)=> Attr.Value) extends Attr
+final class BasicAttr(val title: String, val value: Attr.Value) extends Attr
+final class AccumAttr(val title: String, val value: Attr.Value, val accum: (Attr.Value, Attr.Value)=> Attr.Value) extends Attr
 
-final case class Prop(title: String, value: Prop.Value) extends StaticVDomModifier
+final class Prop(val title: String, val value: Prop.Value) extends StaticVDomModifier
 object Prop {
   type Value = DataObject.PropValue
 }
 
 sealed trait Style extends StaticVDomModifier
-final case class AccumStyle(title: String, value: String, accum: (String, String) => String) extends Style
-final case class BasicStyle(title: String, value: String) extends Style
-final case class DelayedStyle(title: String, value: String) extends Style
-final case class RemoveStyle(title: String, value: String) extends Style
-final case class DestroyStyle(title: String, value: String) extends Style
+final class AccumStyle(val title: String, val value: String, val accum: (String, String) => String) extends Style
+final class BasicStyle(val title: String, val value: String) extends Style
+final class DelayedStyle(val title: String, val value: String) extends Style
+final class RemoveStyle(val title: String, val value: String) extends Style
+final class DestroyStyle(val title: String, val value: String) extends Style
 
 sealed trait SnabbdomHook extends StaticVDomModifier
-final case class InitHook(trigger: js.Function1[VNodeProxy, Unit]) extends SnabbdomHook
-final case class InsertHook(trigger: js.Function1[VNodeProxy, Unit]) extends SnabbdomHook
-final case class PrePatchHook(trigger: js.Function2[VNodeProxy, VNodeProxy, Unit]) extends SnabbdomHook
-final case class UpdateHook(trigger: js.Function2[VNodeProxy, VNodeProxy, Unit]) extends SnabbdomHook
-final case class PostPatchHook(trigger: js.Function2[VNodeProxy, VNodeProxy, Unit]) extends SnabbdomHook
-final case class DestroyHook(trigger: js.Function1[VNodeProxy, Unit]) extends SnabbdomHook
+final class InitHook(val trigger: js.Function1[VNodeProxy, Unit]) extends SnabbdomHook
+final class InsertHook(val trigger: js.Function1[VNodeProxy, Unit]) extends SnabbdomHook
+final class PrePatchHook(val trigger: js.Function2[VNodeProxy, VNodeProxy, Unit]) extends SnabbdomHook
+final class UpdateHook(val trigger: js.Function2[VNodeProxy, VNodeProxy, Unit]) extends SnabbdomHook
+final class PostPatchHook(val trigger: js.Function2[VNodeProxy, VNodeProxy, Unit]) extends SnabbdomHook
+final class DestroyHook(val trigger: js.Function1[VNodeProxy, Unit]) extends SnabbdomHook
 
 sealed trait DomHook extends SnabbdomHook
-final case class DomMountHook(trigger: js.Function1[VNodeProxy, Unit]) extends DomHook
-final case class DomUnmountHook(trigger: js.Function1[VNodeProxy, Unit]) extends DomHook
-final case class DomUpdateHook(trigger: js.Function2[VNodeProxy, VNodeProxy, Unit]) extends DomHook
-final case class DomPreUpdateHook(trigger: js.Function2[VNodeProxy, VNodeProxy, Unit]) extends DomHook
+final class DomMountHook(val trigger: js.Function1[VNodeProxy, Unit]) extends DomHook
+final class DomUnmountHook(val trigger: js.Function1[VNodeProxy, Unit]) extends DomHook
+final class DomUpdateHook(val trigger: js.Function2[VNodeProxy, VNodeProxy, Unit]) extends DomHook
+final class DomPreUpdateHook(val trigger: js.Function2[VNodeProxy, VNodeProxy, Unit]) extends DomHook
 
-final case class NextVDomModifier(modifier: StaticVDomModifier) extends StaticVDomModifier
+final class NextVDomModifier(val modifier: StaticVDomModifier) extends StaticVDomModifier
 
-case object EmptyModifier extends VDomModifier
-final case class CompositeModifier(modifiers: Iterable[VDomModifier]) extends VDomModifier
-final case class StreamModifier(subscription: SinkObserver[VDomModifier] => Subscription) extends VDomModifier
-final case class SubscriptionModifier(subscription: () => Subscription) extends VDomModifier
-final case class SyncEffectModifier(unsafeRun: () => VDomModifier) extends VDomModifier
-final case class StringVNode(text: String) extends VDomModifier
+object EmptyModifier extends VDomModifier
+final class CompositeModifier(val modifiers: Iterable[VDomModifier]) extends VDomModifier
+final class StreamModifier(val subscription: SinkObserver[VDomModifier] => Subscription) extends VDomModifier
+final class SubscriptionModifier(val subscription: () => Subscription) extends VDomModifier
+final class SyncEffectModifier(val unsafeRun: () => VDomModifier) extends VDomModifier
+final class StringVNode(val text: String) extends VDomModifier
 
 sealed trait VNode extends VDomModifier {
   def apply(args: VDomModifier*): VNode
@@ -119,27 +119,27 @@ sealed trait BasicVNode extends VNode {
   def apply(args: VDomModifier*): BasicVNode
   def append(args: VDomModifier*): BasicVNode
   def prepend(args: VDomModifier*): BasicVNode
-  def thunk(key: Key.Value)(arguments: Any*)(renderFn: => VDomModifier): ThunkVNode = ThunkVNode(this, key, arguments.toJSArray, () => renderFn)
-  def thunkConditional(key: Key.Value)(shouldRender: Boolean)(renderFn: => VDomModifier): ConditionalVNode = ConditionalVNode(this, key, shouldRender, () => renderFn)
+  def thunk(key: Key.Value)(arguments: Any*)(renderFn: => VDomModifier): ThunkVNode = new ThunkVNode(this, key, arguments.toJSArray, () => renderFn)
+  def thunkConditional(key: Key.Value)(shouldRender: Boolean)(renderFn: => VDomModifier): ConditionalVNode = new ConditionalVNode(this, key, shouldRender, () => renderFn)
   @inline def thunkStatic(key: Key.Value)(renderFn: => VDomModifier): ConditionalVNode = thunkConditional(key)(false)(renderFn)
 }
-@inline final case class ThunkVNode(baseNode: BasicVNode, key: Key.Value, arguments: js.Array[Any], renderFn: () => VDomModifier) extends VNode {
+@inline final class ThunkVNode(val baseNode: BasicVNode, val key: Key.Value, val arguments: js.Array[Any], val renderFn: () => VDomModifier) extends VNode {
   @inline def apply(args: VDomModifier*): ThunkVNode = append(args: _*)
-  def append(args: VDomModifier*): ThunkVNode = copy(baseNode = baseNode(args: _*))
-  def prepend(args: VDomModifier*): ThunkVNode = copy(baseNode = baseNode.prepend(args :_*))
+  def append(args: VDomModifier*): ThunkVNode = new ThunkVNode(baseNode = baseNode(args: _*), key = key, arguments = arguments, renderFn = renderFn)
+  def prepend(args: VDomModifier*): ThunkVNode = new ThunkVNode(baseNode = baseNode.prepend(args :_*), key = key, arguments = arguments, renderFn = renderFn)
 }
-@inline final case class ConditionalVNode(baseNode: BasicVNode, key: Key.Value, shouldRender: Boolean, renderFn: () => VDomModifier) extends VNode {
+@inline final class ConditionalVNode(val baseNode: BasicVNode, val key: Key.Value, val shouldRender: Boolean, val renderFn: () => VDomModifier) extends VNode {
   @inline def apply(args: VDomModifier*): ConditionalVNode = append(args: _*)
-  def append(args: VDomModifier*): ConditionalVNode = copy(baseNode = baseNode(args: _*))
-  def prepend(args: VDomModifier*): ConditionalVNode = copy(baseNode = baseNode.prepend(args: _*))
+  def append(args: VDomModifier*): ConditionalVNode = new ConditionalVNode(baseNode = baseNode(args: _*), key = key, shouldRender = shouldRender, renderFn = renderFn)
+  def prepend(args: VDomModifier*): ConditionalVNode = new ConditionalVNode(baseNode = baseNode.prepend(args: _*), key = key, shouldRender = shouldRender, renderFn = renderFn)
 }
-@inline final case class HtmlVNode(nodeType: String, modifiers: js.Array[VDomModifier]) extends BasicVNode {
+@inline final class HtmlVNode(val nodeType: String, val modifiers: js.Array[VDomModifier]) extends BasicVNode {
   @inline def apply(args: VDomModifier*): HtmlVNode = append(args: _*)
-  def append(args: VDomModifier*): HtmlVNode = copy(modifiers = appendSeq(modifiers, args))
-  def prepend(args: VDomModifier*): HtmlVNode = copy(modifiers = prependSeq(modifiers, args))
+  def append(args: VDomModifier*): HtmlVNode = new HtmlVNode(nodeType = nodeType, modifiers = appendSeq(modifiers, args))
+  def prepend(args: VDomModifier*): HtmlVNode = new HtmlVNode(nodeType = nodeType, modifiers = prependSeq(modifiers, args))
 }
-@inline final case class SvgVNode(nodeType: String, modifiers: js.Array[VDomModifier]) extends BasicVNode {
+@inline final class SvgVNode(val nodeType: String, val modifiers: js.Array[VDomModifier]) extends BasicVNode {
   @inline def apply(args: VDomModifier*): SvgVNode = append(args: _*)
-  def append(args: VDomModifier*): SvgVNode = copy(modifiers = appendSeq(modifiers, args))
-  def prepend(args: VDomModifier*): SvgVNode = copy(modifiers = prependSeq(modifiers, args))
+  def append(args: VDomModifier*): SvgVNode = new SvgVNode(nodeType = nodeType, modifiers = appendSeq(modifiers, args))
+  def prepend(args: VDomModifier*): SvgVNode = new SvgVNode(nodeType = nodeType, modifiers = prependSeq(modifiers, args))
 }
