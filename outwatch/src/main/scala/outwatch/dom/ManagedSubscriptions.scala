@@ -16,7 +16,7 @@ trait ManagedSubscriptions {
     managed(composite)
   }
 
-  @inline def managedFunction[T : CancelSubscription](subscription: () => T): VDomModifier = SubscriptionModifier(() => Subscription.lift(subscription()))
+  @inline def managedFunction[T : CancelSubscription](subscription: () => T): VDomModifier = new SubscriptionModifier(() => Subscription.lift(subscription()))
 
   object managedElement {
     def apply[T : CancelSubscription](subscription: dom.Element => T): VDomModifier = VDomModifier.delay {
