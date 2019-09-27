@@ -4,10 +4,15 @@ import cats.Monoid
 
 import scala.scalajs.js
 
-sealed trait Subscription {
+trait Subscription {
   def cancel(): Unit
 }
 object Subscription {
+
+  trait Finite extends Subscription {
+    def completed(onComplete: () => Unit): Subscription
+  }
+
   class Builder extends Subscription {
     private var buffer = new js.Array[Subscription]()
 
@@ -44,8 +49,36 @@ object Subscription {
       }
   }
 
-  trait Finite extends Subscription {
-    def completed(onComplete: () => Unit): Subscription
+  class Consecutive extends Finite {
+    private var isCancel = false
+    private var latest: Finite = null
+
+    def +=(subscription: () => Finite): Unit = if (!isCancel) {
+      if (latest == null) {
+        latest = subscription()
+      } else {
+        val current = latest
+        latest = finite(completion =>
+          current.completed(() => completion.onNext(()))
+        )
+      }
+    }
+
+    def completed(onComplete: () => Unit): Subscription =
+      if (latest == null) {
+        onComplete()
+        Subscription.empty
+      } else {
+        latest.completed(onComplete)
+      }
+
+    def cancel(): Unit = {
+      if (latest != null) {
+        latest.cancel()
+        latest = null
+        isCancel = true
+      }
+    }
   }
 
   object Empty extends Subscription {
@@ -69,13 +102,15 @@ object Subscription {
 
   @inline def variable(): Variable = new Variable
 
-  def finite(f: SinkObserver[Unit] => subscription: Subscription), completion: SourceStream[Unit]): FiniteBuilder = {
-    val completion = new SinkSourceVariable[A,A](identity)
-    val subscription = f(handler)
+  @inline def consecutive(): Consecutive = new Consecutive
+
+  def finite(f: SinkObserver[Unit] => Subscription): Finite = {
+    val completion = SinkSourceHandler[Unit]
+    val subscription = f(completion)
 
     new Finite {
       def cancel() = subscription.cancel()
-      def completed(f: () => Unit) = completion.head.foreach(f)
+      def completed(f: () => Unit) = completion.head.foreach(_ => f())
     }
   }
 

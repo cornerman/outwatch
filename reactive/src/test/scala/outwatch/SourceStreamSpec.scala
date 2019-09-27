@@ -113,10 +113,10 @@ class SourceStreamSpec extends FlatSpec with Matchers {
     received shouldBe List(5,4,4,3,3,2,1)
   }
 
-  it should "concatAsync" in {
+  it should "concat" in {
     var runEffect = 0
     var received = List.empty[Int]
-    val stream = SourceStream.concatAsync(IO { runEffect += 1; 0 }, SourceStream.fromIterable(Seq(1,2,3)))
+    val stream = SourceStream.concat(SourceStream.fromAsync(IO { runEffect += 1; 0 }), SourceStream.fromIterable(Seq(1,2,3)))
 
     runEffect shouldBe 0
 

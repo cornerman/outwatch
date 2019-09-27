@@ -104,13 +104,13 @@ trait EmitterBuilderExecution[+O, +R, +Exec <: EmitterBuilder.Execution] {
     transformWithExec[O](source => SourceStream.delayMillis(source)(millis))
 
   def concatMapFuture[T](f: O => Future[T]): EmitterBuilder[T, R] =
-    transformWithExec[T](source => SourceStream.concatMapFuture(source)(f))
+    transformWithExec[T](source => SourceStream.concatMap(source)(o => SourceStream.fromFuture(f(o))))
 
   def concatMapAsync[G[_]: Effect, T](f: O => G[T]): EmitterBuilder[T, R] =
-    transformWithExec[T](source => SourceStream.concatMapAsync(source)(f))
+    transformWithExec[T](source => SourceStream.concatMap(source)(o => SourceStream.fromAsync(f(o))))
 
   def mapSync[G[_]: RunSyncEffect, T](f: O => G[T]): EmitterBuilderExecution[T, R, Exec] =
-    transformWithExec[T](source => SourceStream.mapSync(source)(f))
+    transformWithExec[T](source => SourceStream.concatMap(source)(o => SourceStream.fromSync(f(o))))
 
   def transformLifted[F[_] : Source : LiftSource, OO >: O, T](f: F[OO] => F[T]): EmitterBuilder[T, R] =
     transformWithExec[T]((s: SourceStream[OO]) => SourceStream.lift(f(s.liftSource[F])))
