@@ -151,7 +151,7 @@ private[outwatch] object SnabbdomOps {
         }
       }
 
-      val patchSink = SinkObserver.create[Unit](
+      val patchSink = SinkObserver.createFullNoComplete[Unit](
         _ => invokeDoPatch(async = asyncPatchEnabled),
         OutwatchTracing.errorSubject.onNext
       )

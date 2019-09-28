@@ -16,19 +16,17 @@ trait MonixReactive {
     def onNext[A](sink: Var[A])(value: A): Unit = { sink := value; () }
 
     def onError[A](sink: Var[A])(error: Throwable): Unit = UnhandledErrorReporter.errorSubject.onNext(error)
+
+    def onComplete[A](sink: Var[A]): Unit = ()
   }
 
   //TODO: unsafe because of backpressure and ignored ACK
   implicit object monixObserverSink extends Sink[Observer] {
-    def onNext[A](sink: Observer[A])(value: A): Unit = {
-      sink.onNext(value)
-      ()
-    }
+    def onNext[A](sink: Observer[A])(value: A): Unit = { sink.onNext(value); () }
 
-    def onError[A](sink: Observer[A])(error: Throwable): Unit = {
-      sink.onError(error)
-      ()
-    }
+    def onError[A](sink: Observer[A])(error: Throwable): Unit = sink.onError(error)
+
+    def onComplete[A](sink: Observer[A]): Unit = sink.onComplete()
   }
 
   implicit object monixObserverLiftSink extends LiftSink[Observer.Sync] {
@@ -43,14 +41,12 @@ trait MonixReactive {
 
   implicit def monixObservableSource(implicit scheduler: Scheduler): Source[Observable] = new Source[Observable] {
     def subscribe[G[_] : Sink, A](source: Observable[A])(sink: G[_ >: A]): Subscription = {
-      var cancelable: Cancelable = null
-      val subscription = Subscription.completable(() => cancelable.cancel())
-      cancelable = source.subscribe(
+      val cancelable = source.subscribe(
         { (v: A) => Sink[G].onNext(sink)(v); Ack.Continue },
         Sink[G].onError(sink)(_),
-        () => subscription.onComplete()
+        () => Sink[G].onComplete(sink)
       )
-      subscription
+      Subscription(cancelable.cancel)
     }
   }
 

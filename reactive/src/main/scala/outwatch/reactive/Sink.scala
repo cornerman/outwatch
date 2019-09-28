@@ -3,6 +3,7 @@ package outwatch.reactive
 trait Sink[-F[_]] {
   def onNext[A](sink: F[A])(value: A): Unit
   def onError[A](sink: F[A])(error: Throwable): Unit
+  def onComplete[A](sink: F[A]): Unit
 }
 object Sink {
   @inline def apply[F[_]](implicit sink: Sink[F]): Sink[F] = sink

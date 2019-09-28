@@ -9,9 +9,7 @@ class SinkSourceVariable[I, O](private var current: Option[O], convert: I => O) 
   private var subscribers = new js.Array[SinkObserver[O]]
   private var isRunning = false
 
-  @inline def isEmpty = subscribers.isEmpty
-
-  def onNext(value: I): Unit = {
+  def onNext(value: I): Unit = if (subscribers != null) {
     isRunning = true
     val converted = convert(value)
     current = Some(converted)
@@ -19,20 +17,26 @@ class SinkSourceVariable[I, O](private var current: Option[O], convert: I => O) 
     isRunning = false
   }
 
-  def onError(error: Throwable): Unit = {
+  def onError(error: Throwable): Unit = if (subscribers != null) {
     isRunning = true
     subscribers.foreach(_.onError(error))
     isRunning = false
   }
 
-  def subscribe[G[_] : Sink](sink: G[_ >: O]): Subscription = {
+  def onComplete(): Unit = if (subscribers != null) {
+    val tmp = subscribers
+    subscribers = null
+    tmp.foreach(_.onComplete())
+  }
+
+  def subscribe[G[_] : Sink](sink: G[_ >: O]): Subscription = if (subscribers == null) Subscription.empty else {
     val observer = SinkObserver.lift(sink)
     subscribers.push(observer)
     current.foreach(observer.onNext)
-    Subscription { () =>
+    Subscription(() => if (subscribers != null) {
       if (isRunning) subscribers = subscribers.filter(_ != observer)
       else JSArrayHelper.removeElement(subscribers)(observer)
-    }
+    })
   }
 }
 
@@ -41,28 +45,32 @@ class SinkSourcePublisher[I, O](convert: I => O) extends SinkSourceHandler[I, O]
   private var subscribers = new js.Array[SinkObserver[O]]
   private var isRunning = false
 
-  @inline def isEmpty = subscribers.isEmpty
-
-  def onNext(value: I): Unit = {
+  def onNext(value: I): Unit = if (subscribers != null) {
     isRunning = true
     val converted = convert(value)
     subscribers.foreach(_.onNext(converted))
     isRunning = false
   }
 
-  def onError(error: Throwable): Unit = {
+  def onError(error: Throwable): Unit = if (subscribers != null) {
     isRunning = true
     subscribers.foreach(_.onError(error))
     isRunning = false
   }
 
-  def subscribe[G[_] : Sink](sink: G[_ >: O]): Subscription = {
+  def onComplete(): Unit = if (subscribers != null) {
+    val tmp = subscribers
+    subscribers = null
+    tmp.foreach(_.onComplete())
+  }
+
+  def subscribe[G[_] : Sink](sink: G[_ >: O]): Subscription = if (subscribers == null) Subscription.empty else {
     val observer = SinkObserver.lift(sink)
     subscribers.push(observer)
-    Subscription { () =>
+    Subscription(() => if (subscribers != null) {
       if (isRunning) subscribers = subscribers.filter(_ != observer)
       else JSArrayHelper.removeElement(subscribers)(observer)
-    }
+    })
   }
 }
 
@@ -71,6 +79,8 @@ class SinkSourcePublisher[I, O](convert: I => O) extends SinkSourceHandler[I, O]
   @inline def onNext(value: I): Unit = Sink[SI].onNext(sink)(value)
 
   @inline def onError(error: Throwable): Unit = Sink[SI].onError(sink)(error)
+
+  @inline def onComplete(): Unit = Sink[SI].onComplete(sink)
 
   @inline def subscribe[G[_] : Sink](sink: G[_ >: O]): Subscription = Source[SO].subscribe(source)(sink)
 }

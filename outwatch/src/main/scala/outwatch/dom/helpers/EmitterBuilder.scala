@@ -143,7 +143,7 @@ object EmitterBuilder {
 
   @inline final class Stream[S[_] : Source, +O, +R: SubscriptionOwner](source: S[O], result: R) extends EmitterBuilderExecution[O, R, Execution] {
     @inline private[helpers] def transformWithExec[T](f: SourceStream[O] => SourceStream[T]): EmitterBuilderExecution[T, R, Execution] = new Stream(f(SourceStream.lift(source)), result)
-    @inline def forwardTo[F[_] : Sink](sink: F[_ >: O]): R = SubscriptionOwner[R].own(result)(() => Source[S].subscribe(source)(sink))
+    @inline def forwardTo[F[_] : Sink](sink: F[_ >: O]): R = SubscriptionOwner[R].own(result)(() => Source[S].subscribe(source)(SinkObserver.dropOnComplete(sink)))
   }
 
   @inline final class Custom[+O, +R: SubscriptionOwner, + Exec <: Execution](create: SinkObserver[O] => R) extends EmitterBuilderExecution[O, R, Exec] {
@@ -269,7 +269,7 @@ object EmitterBuilder {
     })
 
   @noinline private def forwardToInTransform[F[_] : Sink, I, O, R: SubscriptionOwner](base: EmitterBuilder[I, R], transformF: SourceStream[I] => SourceStream[O], sink: F[_ >: O]): R = {
-    val connectable = SinkObserver.redirect[F, SourceStream, O, I](sink)(transformF)
+    val connectable = SinkObserver.redirect[SinkObserver, SourceStream, O, I](SinkObserver.dropOnComplete(sink))(transformF)
     SubscriptionOwner[R].own(base.forwardTo(connectable.sink))(() => connectable.connect())
   }
 }
