@@ -92,6 +92,10 @@ object SinkSourceHandler {
 
   @inline def from[SI[_] : Sink, SO[_] : Source, I, O](sink: SI[I], source: SO[O]): SinkSourceHandler[I, O] = new SinkSourceCombinator[SI, SO, I, O](sink, source)
 
+  @inline implicit class Operations[I,O](val handler: SinkSourceHandler[I,O]) extends AnyVal {
+    def transformHandler[G[_] : Sink, S[_] : Source, I2, O2](f: SinkObserver[I] => G[I2])(g: SourceStream[O] => S[O2]): SinkSourceHandler[I2, O2] = from(f(handler), g(handler))
+  }
+
   object createHandler extends CreateHandler[Simple] {
     @inline def publisher[A]: SinkSourceHandler[A, A] = SinkSourceHandler.publish[A]
     @inline def variable[A]: SinkSourceHandler[A, A] = SinkSourceHandler.apply[A]
