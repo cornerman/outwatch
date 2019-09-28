@@ -23,8 +23,8 @@ object SourceStream {
   // want to do in this API.
   import ExecutionContext.Implicits.global
 
-  object Empty extends SourceStream[Nothing] {
-    @inline def subscribe[G[_]: Sink](sink: G[_ >: Nothing]): Subscription = Subscription.empty
+  object Empty extends Finite[Nothing] {
+    @inline def subscribe[G[_]: Sink](sink: G[_ >: Nothing]): Subscription.Finite = Subscription.finiteCompleted
   }
 
   trait Finite[+A] extends SourceStream[A] {
@@ -73,17 +73,19 @@ object SourceStream {
   }
 
   def fromAsync[F[_]: Effect, A](effect: F[A]): Finite[A] = new Finite[A] {
-    def subscribe[G[_]: Sink](sink: G[_ >: A]): Subscription.Finite = Subscription.finite { completion =>
+    def subscribe[G[_]: Sink](sink: G[_ >: A]): Subscription.Finite = Subscription.finiteBuilder { completion =>
       //TODO: proper cancel effects?
       var isCancel = false
 
       Effect[F].runAsync(effect)(either => IO {
+          println("GOT ASYNC " + either + isCancel)
         if (!isCancel) {
           either match {
             case Right(value) => Sink[G].onNext(sink)(value)
             case Left(error)  => Sink[G].onError(sink)(error)
           }
 
+          println("COMPLETED")
           completion.onNext(())
         }
       }).unsafeRunSync()
@@ -167,9 +169,12 @@ object SourceStream {
   def concatSeq[A](sources: Seq[Finite[A]]): Finite[A] = new Finite[A] {
     def subscribe[G[_]: Sink](sink: G[_ >: A]): Subscription.Finite = {
       val consecutive = Subscription.consecutive()
+      println("SUBSCRIBE CONCAT")
       sources.foreach { source =>
+        println("ADD SOURCE")
         consecutive += (() => source.subscribe(sink))
       }
+      println("FINISH SUBSCRIBE CONCAT")
       consecutive
     }
   }
@@ -182,7 +187,7 @@ object SourceStream {
       Subscription.composite(
         subscription,
         variable,
-        subscription.completed(() => variable() = Source[S].subscribe(sourceB)(sink))
+        subscription.completed.foreach(_ => variable() = Source[S].subscribe(sourceB)(sink))
       )
     }
   }
@@ -470,10 +475,10 @@ object SourceStream {
   @inline def head[F[_]: Source, A](source: F[A]): SourceStream[A] = take(source)(1)
 
   //TODO write as explicit SinkObserver instead of filter, more readable.
-  def take[F[_]: Source, A](source: F[A])(num: Int): SourceStream[A] = {
+  def take[F[_]: Source, A](source: F[A])(num: Int): Finite[A] = {
     if (num <= 0) SourceStream.empty
-    else new SourceStream[A] {
-      def subscribe[G[_]: Sink](sink: G[_ >: A]): Subscription = {
+    else new Finite[A] {
+      def subscribe[G[_]: Sink](sink: G[_ >: A]): Subscription.Finite = Subscription.finiteBuilder { completion =>
         var counter = 0
         val subscription = Subscription.variable()
         subscription() = Source[F].subscribe(source)(SinkObserver.contrafilter(sink) { _ =>
@@ -482,6 +487,7 @@ object SourceStream {
             true
           } else {
             subscription.cancel()
+            completion.onNext(())
             false
           }
         })

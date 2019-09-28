@@ -10,7 +10,7 @@ trait Subscription {
 object Subscription {
 
   trait Finite extends Subscription {
-    def completed(onComplete: () => Unit): Subscription
+    def completed: SourceStream[Unit]
   }
 
   class Builder extends Subscription {
@@ -54,23 +54,23 @@ object Subscription {
     private var latest: Finite = null
 
     def +=(subscription: () => Finite): Unit = if (!isCancel) {
+      println("ADD CONSEC ") 
       if (latest == null) {
+        println("CONSEC RUN ") 
         latest = subscription()
       } else {
+        println("CONSEC WAIT ") 
         val current = latest
-        latest = finite(completion =>
-          current.completed(() => completion.onNext(()))
-        )
+        latest = finiteBuilder { completion =>
+          println("CONSEC FINITe ")
+          current.completed.foreach(_ => {println("CONSEC COMPL"); completion.onNext(())})
+        }
       }
     }
 
-    def completed(onComplete: () => Unit): Subscription =
-      if (latest == null) {
-        onComplete()
-        Subscription.empty
-      } else {
-        latest.completed(onComplete)
-      }
+    def completed: SourceStream[Unit] =
+      if (latest == null) SourceStream(())
+      else latest.completed
 
     def cancel(): Unit = {
       if (latest != null) {
@@ -104,19 +104,19 @@ object Subscription {
 
   @inline def consecutive(): Consecutive = new Consecutive
 
-  def finite(f: SinkObserver[Unit] => Subscription): Finite = {
+  def finiteBuilder(f: SinkObserver[Unit] => Subscription): Finite = {
     val completion = SinkSourceHandler[Unit]
     val subscription = f(completion)
 
     new Finite {
       def cancel() = subscription.cancel()
-      def completed(f: () => Unit) = completion.head.foreach(_ => f())
+      def completed = completion.head
     }
   }
 
   val finiteCompleted: Finite = new Finite {
     def cancel() = ()
-    def completed(f: () => Unit) = { f(); Subscription.empty }
+    def completed = SourceStream(())
   }
 
   implicit object monoid extends Monoid[Subscription] {
