@@ -43,11 +43,14 @@ trait MonixReactive {
 
   implicit def monixObservableSource(implicit scheduler: Scheduler): Source[Observable] = new Source[Observable] {
     def subscribe[G[_] : Sink, A](source: Observable[A])(sink: G[_ >: A]): Subscription = {
-      val sub = source.subscribe(
-        { v => Sink[G].onNext(sink)(v); Ack.Continue },
-        Sink[G].onError(sink)
+      var cancelable: Cancelable = null
+      val subscription = Subscription.completable(() => cancelable.cancel())
+      cancelable = source.subscribe(
+        { (v: A) => Sink[G].onNext(sink)(v); Ack.Continue },
+        Sink[G].onError(sink)(_),
+        () => subscription.onComplete()
       )
-      Subscription(sub.cancel)
+      subscription
     }
   }
 

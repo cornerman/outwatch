@@ -3181,7 +3181,7 @@ class OutWatchDomSpec extends JSDomAsyncSpec {
     }
   }
 
-  it should "work with streams (flatMap)" in {
+  it should "work with streams (switchMap monix)" in {
     val myString: Handler[String] = Handler.unsafe[String]
     val myId: Handler[String] = Handler.unsafe[String]
     val myInner: Handler[String] = Handler.unsafe[String]

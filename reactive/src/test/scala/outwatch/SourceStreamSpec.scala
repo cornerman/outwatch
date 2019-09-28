@@ -116,7 +116,7 @@ class SourceStreamSpec extends FlatSpec with Matchers {
   it should "concat" in {
     var runEffect = 0
     var received = List.empty[Int]
-    val stream = SourceStream.concat(SourceStream.fromAsync(IO { runEffect += 1; 0 }), SourceStream.fromIterable(Seq(1,2,3)))
+    val stream = SourceStream.concatVaried(SourceStream.fromAsync(IO { runEffect += 1; 0 }), SourceStream.fromIterable(Seq(1,2,3)))
 
     runEffect shouldBe 0
 
