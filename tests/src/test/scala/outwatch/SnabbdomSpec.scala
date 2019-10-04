@@ -14,13 +14,19 @@ import snabbdom._
 
 class SnabbdomSpec extends JSDomAsyncSpec {
 
+  def newProxy(tagName: String, dataObject: DataObject, string: String, keyOption: js.UndefOr[String] = js.undefined) = new VNodeProxy {
+    sel = tagName
+    data = dataObject
+    text = string
+    key = keyOption
+  }
+
   "The Snabbdom Facade" should "correctly patch the DOM" in {
 
     val message = "Hello World"
 
     for {
-
-       vNode <- IO(hFunction("span#msg", DataObject.empty, message))
+       vNode <- IO(newProxy("span", new DataObject { attrs = js.Dictionary[dom.Attr.Value]("id" -> "msg") }, message))
 
         node <- IO {
                 val node = document.createElement("div")
@@ -32,7 +38,7 @@ class SnabbdomSpec extends JSDomAsyncSpec {
           msg <- IO(document.getElementById("msg").innerHTML)
             _ = msg shouldBe message
        newMsg = "Hello Snabbdom!"
-      newNode <- IO(hFunction("div#new", DataObject.empty, newMsg))
+      newNode <- IO(newProxy("span", new DataObject { attrs = js.Dictionary[dom.Attr.Value]("id" -> "new") }, newMsg))
             _ <- IO(patch(vNode, newNode))
          nMsg <- IO(document.getElementById("new").innerHTML)
             _ = nMsg shouldBe newMsg
@@ -127,12 +133,12 @@ class SnabbdomSpec extends JSDomAsyncSpec {
   it should "correctly handle boolean attributes" in {
 
     val message    = "Hello World"
-    val attributes = js.Dictionary[dom.Attr.Value]("bool1" -> true, "bool0" -> false, "string1" -> "true", "string0" -> "false")
+    val attributes = js.Dictionary[dom.Attr.Value]("id" -> "msg", "bool1" -> true, "bool0" -> false, "string1" -> "true", "string0" -> "false")
     val expected   = s"""<span id="msg" bool1="" string1="true" string0="false">$message</span>"""
 
     for {
 
-      vNode <- IO(hFunction("span#msg", new DataObject { attrs = attributes }, message))
+      vNode <- IO(newProxy("span", new DataObject { attrs = attributes }, message))
        node <- IO {
                 val node = document.createElement("div")
                 document.body.appendChild(node)
@@ -151,7 +157,7 @@ class SnabbdomSpec extends JSDomAsyncSpec {
 
     val renderFn: String => VNodeProxy = { message =>
       renderFnCounter += 1
-      hFunction("span#msg", new DataObject { key = "key" }, message)
+      newProxy("span", new DataObject { key = "key"; attrs = js.Dictionary[dom.Attr.Value]("id" -> "msg") }, message, keyOption = "key")
     }
 
     val message = "Hello World"
@@ -162,14 +168,14 @@ class SnabbdomSpec extends JSDomAsyncSpec {
     renderFnCounter shouldBe 0
 
 
-    val vNode1 = thunk(js.undefined, "span#msg", "key", () => renderFn(message), js.Array(message))
+    val vNode1 = thunk(js.undefined, "span", "key", () => renderFn(message), js.Array(message))
     val p1 = patch(node, vNode1)
 
     renderFnCounter shouldBe 1
     document.getElementById("msg").innerHTML shouldBe message
 
 
-    val vNode2 = thunk(js.undefined, "span#msg", "key", () => renderFn(message), js.Array(message))
+    val vNode2 = thunk(js.undefined, "span", "key", () => renderFn(message), js.Array(message))
     val p2 = patch(p1, vNode2)
 
     renderFnCounter shouldBe 1
@@ -177,7 +183,7 @@ class SnabbdomSpec extends JSDomAsyncSpec {
 
 
     val newMessage = "Hello Snabbdom!"
-    val vNode3 = thunk(js.undefined, "span#msg", "key", () => renderFn(newMessage), js.Array(newMessage))
+    val vNode3 = thunk(js.undefined, "span", "key", () => renderFn(newMessage), js.Array(newMessage))
     val p3 = patch(p2, vNode3)
 
     p3 should not be null
@@ -190,7 +196,7 @@ class SnabbdomSpec extends JSDomAsyncSpec {
 
     val renderFn: String => VNodeProxy = { message =>
       renderFnCounter += 1
-      hFunction("span#msg", new DataObject { key = "key" }, message)
+      newProxy("span", new DataObject { key = "key"; attrs = js.Dictionary[dom.Attr.Value]("id" -> "msg") }, message, keyOption = "key")
     }
 
     val message = "Hello World"
@@ -201,14 +207,14 @@ class SnabbdomSpec extends JSDomAsyncSpec {
     renderFnCounter shouldBe 0
 
 
-    val vNode1 = thunk.conditional(js.undefined, "span#msg", "key", () => renderFn(message), shouldRender = true)
+    val vNode1 = thunk.conditional(js.undefined, "span", "key", () => renderFn(message), shouldRender = true)
     val p1 = patch(node, vNode1)
 
     renderFnCounter shouldBe 1
     document.getElementById("msg").innerHTML shouldBe message
 
 
-    val vNode2 = thunk.conditional(js.undefined, "span#msg", "key", () => renderFn(message), shouldRender = false)
+    val vNode2 = thunk.conditional(js.undefined, "span", "key", () => renderFn(message), shouldRender = false)
     val p2 = patch(p1, vNode2)
 
     renderFnCounter shouldBe 1
@@ -216,7 +222,7 @@ class SnabbdomSpec extends JSDomAsyncSpec {
 
 
     val newMessage = "Hello Snabbdom!"
-    val vNode3 = thunk.conditional(js.undefined, "span#msg", "key", () => renderFn(newMessage), shouldRender = true)
+    val vNode3 = thunk.conditional(js.undefined, "span", "key", () => renderFn(newMessage), shouldRender = true)
     val p3 = patch(p2, vNode3)
 
     p3 should not be null

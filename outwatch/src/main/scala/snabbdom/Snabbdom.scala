@@ -7,35 +7,6 @@ import scala.scalajs.js
 import scala.scalajs.js.annotation.JSImport
 import scala.scalajs.js.|
 
-
-
-@silent("never used|dead code")
-@js.native
-@JSImport("snabbdom/h", JSImport.Namespace, globalFallback = "h")
-object hProvider extends js.Object {
-  val default: hFunction = js.native
-}
-
-@silent
-@js.native
-trait hFunction extends js.Any {
-  def apply(nodeType: String, dataObject: DataObject): VNodeProxy = js.native
-  def apply(nodeType: String, dataObject: DataObject, text: js.UndefOr[String]): VNodeProxy = js.native
-  def apply(nodeType: String, dataObject: DataObject, children: js.Array[VNodeProxy]): VNodeProxy = js.native
-}
-
-object hFunction {
-  def apply(nodeType: String, dataObject: DataObject): VNodeProxy = {
-    hProvider.default.apply(nodeType, dataObject)
-  }
-  def apply(nodeType: String, dataObject: DataObject, text: js.UndefOr[String]): VNodeProxy = {
-    hProvider.default.apply(nodeType, dataObject, text)
-  }
-  def apply(nodeType: String, dataObject: DataObject, children: js.Array[VNodeProxy]): VNodeProxy = {
-    hProvider.default.apply(nodeType, dataObject, children)
-  }
-}
-
 trait Hooks extends js.Object {
   var init: js.UndefOr[Hooks.HookSingleFn] = js.undefined
   var insert: js.UndefOr[Hooks.HookSingleFn] = js.undefined
@@ -80,7 +51,6 @@ object DataObject {
 // object thunkProvider extends js.Object {
 //   val default: thunkFunction = js.native
 // }
-
 // @js.native
 // trait thunkFunction extends js.Any {
 //   def apply(selector: String, renderFn: js.Function, argument: js.Array[Any]): VNodeProxy = js.native
@@ -223,7 +193,7 @@ object VNodeProxy {
 }
 
 @js.native
-@JSImport("snabbdom", JSImport.Namespace, globalFallback = "snabbdom")
+@JSImport("outwatch-snabbdom", JSImport.Namespace, globalFallback = "snabbdom")
 object Snabbdom extends js.Object {
   @silent("never used|dead code")
   def init(args: js.Array[Any]): js.Function2[Node | VNodeProxy, VNodeProxy, VNodeProxy] = js.native
@@ -232,42 +202,41 @@ object Snabbdom extends js.Object {
 
 @silent("never used|dead code")
 @js.native
-@JSImport("snabbdom/modules/class", JSImport.Namespace, globalFallback = "snabbdom_class")
+@JSImport("outwatch-snabbdom/modules/class", JSImport.Namespace, globalFallback = "snabbdom_class")
 object SnabbdomClass extends js.Object {
   val default: js.Any = js.native
 }
 
 @silent("never used|dead code")
 @js.native
-@JSImport("snabbdom/modules/eventlisteners", JSImport.Namespace, globalFallback = "snabbdom_eventlisteners")
-object SnabbdomEventListeners extends js.Object{
+@JSImport("outwatch-snabbdom/modules/eventlisteners", JSImport.Namespace, globalFallback = "snabbdom_eventlisteners")
+object SnabbdomEventListeners extends js.Object {
   val default: js.Any = js.native
 }
 
 @silent("never used|dead code")
 @js.native
-@JSImport("snabbdom/modules/attributes", JSImport.Namespace, globalFallback = "snabbdom_attributes")
-object SnabbdomAttributes extends js.Object{
+@JSImport("outwatch-snabbdom/modules/attributes", JSImport.Namespace, globalFallback = "snabbdom_attributes")
+object SnabbdomAttributes extends js.Object {
   val default: js.Any = js.native
 }
 
 @silent("never used|dead code")
 @js.native
-@JSImport("snabbdom/modules/props", JSImport.Namespace, globalFallback = "snabbdom_props")
+@JSImport("outwatch-snabbdom/modules/props", JSImport.Namespace, globalFallback = "snabbdom_props")
 object SnabbdomProps extends js.Object{
   val default: js.Any = js.native
 }
 
 @silent("never used|dead code")
 @js.native
-@JSImport("snabbdom/modules/style", JSImport.Namespace, globalFallback = "snabbdom_style")
+@JSImport("outwatch-snabbdom/modules/style", JSImport.Namespace, globalFallback = "snabbdom_style")
 object SnabbdomStyle extends js.Object {
   val default: js.Any = js.native
 }
 
-
 @js.native
-@JSImport("snabbdom/tovnode", JSImport.Default)
+@JSImport("outwatch-snabbdom/tovnode", JSImport.Default)
 object tovnode extends js.Function1[Element, VNodeProxy] {
   def apply(element: Element):VNodeProxy = js.native
 }

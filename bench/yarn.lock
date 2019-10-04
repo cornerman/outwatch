@@ -2875,6 +2875,11 @@ osenv@^0.1.4:
     os-homedir "^1.0.0"
     os-tmpdir "^1.0.0"
 
+outwatch-snabbdom@0.7.6:
+  version "0.7.6"
+  resolved "https://registry.yarnpkg.com/outwatch-snabbdom/-/outwatch-snabbdom-0.7.6.tgz#2a4a61353971ac8d5c71e913a12ca3f423014cda"
+  integrity sha512-sH/n2mYrWMzVUAvxH8ijfK9etyEaBOfPgO/cyLVgPIzz6Vrg0HXLCkXC6v/1OgHDZCGiwbbT/kKzRbOV0tf1ZA==
+
 p-finally@^1.0.0:
   version "1.0.0"
   resolved "https://registry.yarnpkg.com/p-finally/-/p-finally-1.0.0.tgz#3fbcfb15b899a44123b34b6dcc18b724336a2cae"
@@ -3539,10 +3544,6 @@ signal-exit@^3.0.0:
   version "3.0.2"
   resolved "https://registry.yarnpkg.com/signal-exit/-/signal-exit-3.0.2.tgz#b5fdc08f1287ea1178628e415e25132b73646c6d"
   integrity sha1-tf3AjxKH6hF4Yo5BXiUTK3NkbG0=
-
-"snabbdom@git://github.com/cornerman/snabbdom.git#semver:0.7.4":
-  version "0.7.4"
-  resolved "git://github.com/cornerman/snabbdom.git#2814da5d929d432b9c3fc5ecf91ca03c72e17bbe"
 
 snapdragon-node@^2.0.1:
   version "2.1.1"
