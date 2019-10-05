@@ -148,9 +148,9 @@ object patch {
     SnabbdomStyle.default
   ))
 
-  def apply(firstNode: VNodeProxy, vNode: VNodeProxy): VNodeProxy = p(firstNode,vNode)
+  @inline def apply(firstNode: VNodeProxy, vNode: VNodeProxy): VNodeProxy = p(firstNode, vNode)
 
-  def apply(firstNode: org.scalajs.dom.Element, vNode: VNodeProxy): VNodeProxy = p(firstNode,vNode)
+  @inline def apply(firstNode: org.scalajs.dom.Element, vNode: VNodeProxy): VNodeProxy = p(firstNode, vNode)
 }
 
 trait VNodeProxy extends js.Object {
