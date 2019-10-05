@@ -34,7 +34,6 @@ private[outwatch] class SeparatedModifiers {
   var oldPostPatchHook: js.UndefOr[Hooks.HookPairFn] = js.undefined
   var postPatchHook: js.UndefOr[Hooks.HookPairFn] = js.undefined
   var destroyHook: js.UndefOr[Hooks.HookSingleFn] = js.undefined
-  var domUnmountHook: js.UndefOr[Hooks.HookSingleFn] = js.undefined
 }
 
 private[outwatch] object SeparatedModifiers {
@@ -60,15 +59,6 @@ private[outwatch] object SeparatedModifiers {
     @inline def createHooksPair[T](current: js.UndefOr[js.Function2[T, T, Unit]], hook: js.Function2[T, T, Unit]): js.Function2[T, T, Unit] =
       current.fold(hook)(current => { (o,p) => current(o, p); hook(o, p) })
 
-
-    // append unmount hook for when patching a different proxy out of the dom.
-    // the proxies will then have different OutwatchStates and we then need to
-    // call the unmount hook of the oldProxy.
-    postPatchHook = { (oldProxy, proxy) =>
-      if (!NativeModifiers.equalsVNodeIds(proxy._id, oldProxy._id)) {
-        oldProxy._unmount.foreach(_(oldProxy))
-      }
-    }: Hooks.HookPairFn
 
     def append(mod: StaticVDomModifier): Unit = mod match {
       case p: VNodeProxyNode =>
@@ -133,12 +123,16 @@ private[outwatch] object SeparatedModifiers {
         ()
       case h: DomUnmountHook =>
         destroyHook = createHooksSingle(destroyHook, h.trigger)
-        domUnmountHook = createHooksSingle(domUnmountHook, h.trigger)
+        oldPostPatchHook = createHooksPair[VNodeProxy](oldPostPatchHook, { (oldproxy, proxy) =>
+          if (!NativeModifiers.equalsVNodeIds(proxy._id, oldproxy._id)) {
+            h.trigger(oldproxy)
+          }
+        })
         ()
       case h: DomUpdateHook =>
         postPatchHook = createHooksPair[VNodeProxy](postPatchHook, { (oldproxy, proxy) =>
           if (NativeModifiers.equalsVNodeIds(oldproxy._id, proxy._id)) {
-            h.trigger(proxy, proxy)
+            h.trigger(oldproxy, proxy)
           }
         })
         ()
@@ -331,20 +325,23 @@ private[outwatch] object NativeModifiers {
     case h: DomUnmountHook =>
       // we call the unmount hook, whenever this hook is freshly superseded by a new modifier
       // in a stream. whenever the node is patched afterwards we check whether we are still
-      // present in the node. if not, we are unmounted and call the hook. We additionally
-      // react to the normal unmount event.
+      // present in the node. if not, we are unmounted and call the hook.
       var triggered = false
       var isOpen = true
       js.Array(
-        h,
         new InsertHook({ _ => triggered = true }),
-        new PrePatchHook({ (o, p) =>
-          if (triggered && equalsVNodeIds(o._id, p._id)) isOpen = false
+        new DestroyHook({ p =>
+          if (triggered) h.trigger(p)
+        }),
+        new PrePatchHook({ (_, _) =>
+          isOpen = true
           triggered = true
         }),
-        new OldPostPatchHook({ (o, p) =>
-          if (isOpen && equalsVNodeIds(o._id, p._id)) h.trigger(o)
-          isOpen = true
+        new PostPatchHook({ (_, _) =>
+          isOpen = false
+        }),
+        new OldPostPatchHook({ (o, _) =>
+          if (!isOpen && triggered) h.trigger(o)
         })
       )
   }

@@ -153,7 +153,6 @@ trait VNodeProxy extends js.Object {
   var listener: js.UndefOr[js.Any] = js.undefined
 
   var _id: js.UndefOr[Int] = js.undefined
-  var _unmount: js.UndefOr[Hooks.HookSingleFn] = js.undefined
   var _update: js.UndefOr[js.Function1[VNodeProxy, Unit]] = js.undefined
   var _args: js.UndefOr[js.Array[Any] | Boolean] = js.undefined
 }
@@ -172,7 +171,6 @@ object VNodeProxy {
     target.elm = source.elm
     target.listener = source.listener
     target._id = source._id
-    target._unmount = source._unmount
   }
 
   def copyInto(source: VNodeProxy, target: VNodeProxy): Unit = if (source ne target) {

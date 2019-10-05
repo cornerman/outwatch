@@ -44,7 +44,6 @@ private[outwatch] object SnabbdomOps {
       text = string
       key = modifiers.keyOption
       _id = vNodeId
-      _unmount = modifiers.domUnmountHook
     }
 
     if (modifiers.hasOnlyTextChildren) {
