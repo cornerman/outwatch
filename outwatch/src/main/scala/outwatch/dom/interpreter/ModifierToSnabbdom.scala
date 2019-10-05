@@ -20,7 +20,6 @@ import scala.scalajs.js
 // This represents the structured definition of a VNodeProxy (like snabbdom expects it).
 private[outwatch] class SeparatedModifiers {
   var hasOnlyTextChildren = true
-  var nextModifiers: js.UndefOr[js.Array[StaticVDomModifier]] = js.undefined
   var proxies: js.UndefOr[js.Array[VNodeProxy]] = js.undefined
   var attrs: js.UndefOr[js.Dictionary[DataObject.AttrValue]] = js.undefined
   var props: js.UndefOr[js.Dictionary[DataObject.PropValue]] = js.undefined
@@ -30,19 +29,20 @@ private[outwatch] class SeparatedModifiers {
   var initHook: js.UndefOr[Hooks.HookSingleFn] = js.undefined
   var insertHook: js.UndefOr[Hooks.HookSingleFn] = js.undefined
   var prePatchHook: js.UndefOr[Hooks.HookPairFn] = js.undefined
+  var oldPrePatchHook: js.UndefOr[Hooks.HookPairFn] = js.undefined
   var updateHook: js.UndefOr[Hooks.HookPairFn] = js.undefined
+  var oldPostPatchHook: js.UndefOr[Hooks.HookPairFn] = js.undefined
   var postPatchHook: js.UndefOr[Hooks.HookPairFn] = js.undefined
   var destroyHook: js.UndefOr[Hooks.HookSingleFn] = js.undefined
   var domUnmountHook: js.UndefOr[Hooks.HookSingleFn] = js.undefined
 }
 
 private[outwatch] object SeparatedModifiers {
-  def from(modifiers: MutableNestedArray[StaticVDomModifier], prependModifiers: js.UndefOr[js.Array[StaticVDomModifier]] = js.undefined, appendModifiers: js.UndefOr[js.Array[StaticVDomModifier]] = js.undefined): SeparatedModifiers = {
+  def from(modifiers: MutableNestedArray[StaticVDomModifier], prependModifiers: js.UndefOr[js.Array[StaticVDomModifier]] = js.undefined): SeparatedModifiers = {
     val separatedModifiers = new SeparatedModifiers
     import separatedModifiers._
 
     @inline def assureProxies() = proxies getOrElse assign(new js.Array[VNodeProxy])(proxies = _)
-    @inline def assureNextModifiers() = nextModifiers getOrElse assign(new js.Array[StaticVDomModifier])(nextModifiers = _)
     @inline def assureEmitters() = emitters getOrElse assign(js.Dictionary[js.Function1[dom.Event, Unit]]())(emitters = _)
     @inline def assureAttrs() = attrs getOrElse assign(js.Dictionary[DataObject.AttrValue]())(attrs = _)
     @inline def assureProps() = props getOrElse assign(js.Dictionary[DataObject.PropValue]())(props = _)
@@ -158,24 +158,25 @@ private[outwatch] object SeparatedModifiers {
       case h: PrePatchHook =>
         prePatchHook = createHooksPair(prePatchHook, h.trigger)
         ()
+      case h: OldPrePatchHook =>
+        oldPrePatchHook = createHooksPair(oldPrePatchHook, h.trigger)
+        ()
       case h: UpdateHook =>
         updateHook = createHooksPair(updateHook, h.trigger)
         ()
       case h: PostPatchHook =>
         postPatchHook = createHooksPair(postPatchHook, h.trigger)
         ()
+      case h: OldPostPatchHook =>
+        oldPostPatchHook = createHooksPair(oldPostPatchHook, h.trigger)
+        ()
       case h: DestroyHook =>
         destroyHook = createHooksSingle(destroyHook, h.trigger)
-        ()
-      case n: NextVDomModifier =>
-        val nextModifiers = assureNextModifiers()
-        nextModifiers += n.modifier
         ()
     }
 
     prependModifiers.foreach(_.foreach(append))
     modifiers.foreach(append)
-    appendModifiers.foreach(_.foreach(append))
 
     separatedModifiers
   }
@@ -337,14 +338,14 @@ private[outwatch] object NativeModifiers {
       js.Array(
         h,
         new InsertHook({ _ => triggered = true }),
-        new UpdateHook({ (o, p) =>
+        new PrePatchHook({ (o, p) =>
           if (triggered && equalsVNodeIds(o._id, p._id)) isOpen = false
           triggered = true
         }),
-        new NextVDomModifier(new UpdateHook({ (o, p) =>
-          if (isOpen && equalsVNodeIds(o._id, p._id)) h.trigger(p)
+        new OldPostPatchHook({ (o, p) =>
+          if (isOpen && equalsVNodeIds(o._id, p._id)) h.trigger(o)
           isOpen = true
-        }))
+        })
       )
   }
 

@@ -570,7 +570,7 @@ class LifecycleHookSpec extends JSDomAsyncSpec {
       domHooks shouldBe List("mount1", "child-mount1")
 
       countHandler.onNext(2)
-      domHooks shouldBe List("mount1", "child-mount1", "unmount1", "child-unmount1", "child-mount2", "mount2")
+      domHooks shouldBe List("mount1", "child-mount1", "child-unmount1", "child-mount2", "unmount1", "mount2")
     }
   }
 

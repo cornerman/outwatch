@@ -83,8 +83,10 @@ final class DestroyStyle(val title: String, val value: String) extends Style
 sealed trait SnabbdomHook extends StaticVDomModifier
 final class InitHook(val trigger: js.Function1[VNodeProxy, Unit]) extends SnabbdomHook
 final class InsertHook(val trigger: js.Function1[VNodeProxy, Unit]) extends SnabbdomHook
+final class OldPrePatchHook(val trigger: js.Function2[VNodeProxy, VNodeProxy, Unit]) extends SnabbdomHook
 final class PrePatchHook(val trigger: js.Function2[VNodeProxy, VNodeProxy, Unit]) extends SnabbdomHook
 final class UpdateHook(val trigger: js.Function2[VNodeProxy, VNodeProxy, Unit]) extends SnabbdomHook
+final class OldPostPatchHook(val trigger: js.Function2[VNodeProxy, VNodeProxy, Unit]) extends SnabbdomHook
 final class PostPatchHook(val trigger: js.Function2[VNodeProxy, VNodeProxy, Unit]) extends SnabbdomHook
 final class DestroyHook(val trigger: js.Function1[VNodeProxy, Unit]) extends SnabbdomHook
 
@@ -93,8 +95,6 @@ final class DomMountHook(val trigger: js.Function1[VNodeProxy, Unit]) extends Do
 final class DomUnmountHook(val trigger: js.Function1[VNodeProxy, Unit]) extends DomHook
 final class DomUpdateHook(val trigger: js.Function2[VNodeProxy, VNodeProxy, Unit]) extends DomHook
 final class DomPreUpdateHook(val trigger: js.Function2[VNodeProxy, VNodeProxy, Unit]) extends DomHook
-
-final class NextVDomModifier(val modifier: StaticVDomModifier) extends StaticVDomModifier
 
 object EmptyModifier extends VDomModifier
 final class CompositeModifier(val modifiers: Iterable[VDomModifier]) extends VDomModifier

@@ -11,8 +11,10 @@ trait Hooks extends js.Object {
   var init: js.UndefOr[Hooks.HookSingleFn] = js.undefined
   var insert: js.UndefOr[Hooks.HookSingleFn] = js.undefined
   var prepatch: js.UndefOr[Hooks.HookPairFn] = js.undefined
+  var oldprepatch: js.UndefOr[Hooks.HookPairFn] = js.undefined
   var update: js.UndefOr[Hooks.HookPairFn] = js.undefined
   var postpatch: js.UndefOr[Hooks.HookPairFn] = js.undefined
+  var oldpostpatch: js.UndefOr[Hooks.HookPairFn] = js.undefined
   var destroy: js.UndefOr[Hooks.HookSingleFn] = js.undefined
 }
 
@@ -45,17 +47,6 @@ object DataObject {
   def empty: DataObject = new DataObject { }
 }
 
-// These are the original facades for snabbdom thunk. But we implement our own, so that for equality checks, the equals method is used.
-// @js.native
-// @JSImport("snabbdom/thunk", JSImport.Namespace, globalFallback = "thunk")
-// object thunkProvider extends js.Object {
-//   val default: thunkFunction = js.native
-// }
-// @js.native
-// trait thunkFunction extends js.Any {
-//   def apply(selector: String, renderFn: js.Function, argument: js.Array[Any]): VNodeProxy = js.native
-//   def apply(selector: String, key: String, renderFn: js.Function, argument: js.Array[Any]): VNodeProxy = js.native
-// }
 object thunk {
   // own implementation of https://github.com/snabbdom/snabbdom/blob/master/src/thunk.ts
   //does respect equality via the equals method. snabbdom thunk uses reference equality: https://github.com/snabbdom/snabbdom/issues/143
@@ -141,7 +132,6 @@ object thunk {
 object patch {
 
   private val p = Snabbdom.init(js.Array(
-    SnabbdomClass.default,
     SnabbdomEventListeners.default,
     SnabbdomAttributes.default,
     SnabbdomProps.default,
@@ -198,13 +188,6 @@ object Snabbdom extends js.Object {
   @silent("never used|dead code")
   def init(args: js.Array[Any]): js.Function2[Node | VNodeProxy, VNodeProxy, VNodeProxy] = js.native
 
-}
-
-@silent("never used|dead code")
-@js.native
-@JSImport("outwatch-snabbdom/modules/class", JSImport.Namespace, globalFallback = "snabbdom_class")
-object SnabbdomClass extends js.Object {
-  val default: js.Any = js.native
 }
 
 @silent("never used|dead code")
