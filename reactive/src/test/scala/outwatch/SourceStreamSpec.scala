@@ -24,6 +24,19 @@ class SourceStreamSpec extends FlatSpec with Matchers {
     received shouldBe List(3,2,1,3,2,1)
   }
 
+  it should "scan" in {
+    var mapped = List.empty[Int]
+    var received = List.empty[Int]
+    val stream = SourceStream.fromIterable(Seq(1,2,3)).scan(0) { (a,x) => mapped ::= x; a + x }
+
+    mapped shouldBe List.empty
+
+    stream.subscribe(SinkObserver.create[Int](received ::= _))
+
+    mapped shouldBe List(3,2,1)
+    received shouldBe List(6,3,1)
+  }
+
   it should "dropWhile" in {
     var mapped = List.empty[Int]
     var received = List.empty[Int]
