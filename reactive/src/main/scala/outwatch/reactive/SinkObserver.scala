@@ -23,11 +23,11 @@ object SinkObserver {
   )
   @inline def connectable[T](sink: SinkObserver[T], connect: () => Subscription): Connectable[T] = new Connectable(sink, connect)
 
-  def lift[F[_] : Sink, A](sink: F[A]): SinkObserver[A] =  sink match {
+  def lift[G[_] : Sink, A](sink: G[A]): SinkObserver[A] =  sink match {
     case sink: SinkObserver[A@unchecked] => sink
     case _ => new SinkObserver[A] {
-      def onNext(value: A): Unit = Sink[F].onNext(sink)(value)
-      def onError(error: Throwable): Unit = Sink[F].onError(sink)(error)
+      def onNext(value: A): Unit = Sink[G].onNext(sink)(value)
+      def onError(error: Throwable): Unit = Sink[G].onError(sink)(error)
     }
   }
 
@@ -41,53 +41,64 @@ object SinkObserver {
     def onError(error: Throwable): Unit = failure(error)
   }
 
-  @inline def combine[F[_] : Sink, A](sinks: F[A]*): SinkObserver[A] = combineSeq(sinks)
+  @inline def combine[G[_] : Sink, A](sinks: G[A]*): SinkObserver[A] = combineSeq(sinks)
 
-  def combineSeq[F[_] : Sink, A](sinks: Seq[F[A]]): SinkObserver[A] = new SinkObserver[A] {
-    def onNext(value: A): Unit = sinks.foreach(Sink[F].onNext(_)(value))
-    def onError(error: Throwable): Unit = sinks.foreach(Sink[F].onError(_)(error))
+  def combineSeq[G[_] : Sink, A](sinks: Seq[G[A]]): SinkObserver[A] = new SinkObserver[A] {
+    def onNext(value: A): Unit = sinks.foreach(Sink[G].onNext(_)(value))
+    def onError(error: Throwable): Unit = sinks.foreach(Sink[G].onError(_)(error))
   }
 
-  def combineVaried[F[_] : Sink, G[_] : Sink, A](sinkA: F[A], sinkB: G[A]): SinkObserver[A] = new SinkObserver[A] {
+  def combineVaried[GA[_] : Sink, GB[_] : Sink, A](sinkA: GA[A], sinkB: GB[A]): SinkObserver[A] = new SinkObserver[A] {
     def onNext(value: A): Unit = {
-      Sink[F].onNext(sinkA)(value)
-      Sink[G].onNext(sinkB)(value)
+      Sink[GA].onNext(sinkA)(value)
+      Sink[GB].onNext(sinkB)(value)
     }
     def onError(error: Throwable): Unit = {
-      Sink[F].onError(sinkA)(error)
-      Sink[G].onError(sinkB)(error)
+      Sink[GA].onError(sinkA)(error)
+      Sink[GB].onError(sinkB)(error)
     }
   }
 
-  def contramap[F[_] : Sink, A, B](sink: F[_ >: A])(f: B => A): SinkObserver[B] = new SinkObserver[B] {
-    def onNext(value: B): Unit = recovered(Sink[F].onNext(sink)(f(value)), onError)
-    def onError(error: Throwable): Unit = Sink[F].onError(sink)(error)
+  def contramap[G[_] : Sink, A, B](sink: G[_ >: A])(f: B => A): SinkObserver[B] = new SinkObserver[B] {
+    def onNext(value: B): Unit = recovered(Sink[G].onNext(sink)(f(value)), onError)
+    def onError(error: Throwable): Unit = Sink[G].onError(sink)(error)
   }
 
-  def contramapFilter[F[_] : Sink, A, B](sink: F[_ >: A])(f: B => Option[A]): SinkObserver[B] = new SinkObserver[B] {
-    def onNext(value: B): Unit = recovered(f(value).foreach(Sink[F].onNext(sink)), onError)
-    def onError(error: Throwable): Unit = Sink[F].onError(sink)(error)
+  def contramapFilter[G[_] : Sink, A, B](sink: G[_ >: A])(f: B => Option[A]): SinkObserver[B] = new SinkObserver[B] {
+    def onNext(value: B): Unit = recovered(f(value).foreach(Sink[G].onNext(sink)), onError)
+    def onError(error: Throwable): Unit = Sink[G].onError(sink)(error)
   }
 
-  def contracollect[F[_] : Sink, A, B](sink: F[_ >: A])(f: PartialFunction[B, A]): SinkObserver[B] = new SinkObserver[B] {
-    def onNext(value: B): Unit = recovered({ f.runWith(Sink[F].onNext(sink))(value); () }, onError)
-    def onError(error: Throwable): Unit = Sink[F].onError(sink)(error)
+  def contracollect[G[_] : Sink, A, B](sink: G[_ >: A])(f: PartialFunction[B, A]): SinkObserver[B] = new SinkObserver[B] {
+    def onNext(value: B): Unit = recovered({ f.runWith(Sink[G].onNext(sink))(value); () }, onError)
+    def onError(error: Throwable): Unit = Sink[G].onError(sink)(error)
   }
 
-  def contrafilter[F[_] : Sink, A](sink: F[_ >: A])(f: A => Boolean): SinkObserver[A] = new SinkObserver[A] {
-    def onNext(value: A): Unit = recovered(if (f(value)) Sink[F].onNext(sink)(value), onError)
-    def onError(error: Throwable): Unit = Sink[F].onError(sink)(error)
+  def contrafilter[G[_] : Sink, A](sink: G[_ >: A])(f: A => Boolean): SinkObserver[A] = new SinkObserver[A] {
+    def onNext(value: A): Unit = recovered(if (f(value)) Sink[G].onNext(sink)(value), onError)
+    def onError(error: Throwable): Unit = Sink[G].onError(sink)(error)
   }
 
-  def doOnError[F[_] : Sink, A](sink: F[_ >: A])(f: Throwable => Unit): SinkObserver[A] = new SinkObserver[A] {
-    def onNext(value: A): Unit = Sink[F].onNext(sink)(value)
+  //TODO return effect
+  def contrascan[G[_] : Sink, A, B](sink: G[_ >: A])(seed: A)(f: (A, B) => A): SinkObserver[B] = new SinkObserver[B] {
+    private var state = seed
+    def onNext(value: B): Unit = recovered({
+      val result = f(state, value)
+      state = result
+      Sink[G].onNext(sink)(result)
+    }, onError)
+    def onError(error: Throwable): Unit = Sink[G].onError(sink)(error)
+  }
+
+  def doOnError[G[_] : Sink, A](sink: G[_ >: A])(f: Throwable => Unit): SinkObserver[A] = new SinkObserver[A] {
+    def onNext(value: A): Unit = Sink[G].onNext(sink)(value)
     def onError(error: Throwable): Unit = f(error)
   }
 
-  def redirect[F[_] : Sink, G[_] : Source, A, B](sink: F[_ >: A])(transform: SourceStream[B] => G[A]): Connectable[B] = {
+  def redirect[G[_] : Sink, S[_] : Source, A, B](sink: G[_ >: A])(transform: SourceStream[B] => S[A]): Connectable[B] = {
     val handler = SinkSourceHandler.publish[B]
     val source = transform(handler)
-    connectable(handler, () => Source[G].subscribe(source)(sink))
+    connectable(handler, () => Source[S].subscribe(source)(sink))
   }
 
   implicit object liftSink extends LiftSink[SinkObserver] {
@@ -114,8 +125,9 @@ object SinkObserver {
     @inline def contramapFilter[B](f: B => Option[A]): SinkObserver[B] = SinkObserver.contramapFilter(sink)(f)
     @inline def contracollect[B](f: PartialFunction[B, A]): SinkObserver[B] = SinkObserver.contracollect(sink)(f)
     @inline def contrafilter(f: A => Boolean): SinkObserver[A] = SinkObserver.contrafilter(sink)(f)
+    @inline def contrascan[B](seed: A)(f: (A, B) => A): SinkObserver[B] = SinkObserver.contrascan(sink)(seed)(f)
     @inline def doOnError(f: Throwable => Unit): SinkObserver[A] = SinkObserver.doOnError(sink)(f)
-    @inline def redirect[F[_] : Source, B](f: SourceStream[B] => F[A]): SinkObserver.Connectable[B] = SinkObserver.redirect(sink)(f)
+    @inline def redirect[G[_] : Source, B](f: SourceStream[B] => G[A]): SinkObserver.Connectable[B] = SinkObserver.redirect(sink)(f)
   }
 
   @inline private def recovered(action: => Unit, onError: Throwable => Unit): Unit = try action catch { case NonFatal(t) => onError(t) }

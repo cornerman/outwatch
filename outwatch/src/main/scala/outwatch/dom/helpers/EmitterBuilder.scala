@@ -66,6 +66,10 @@ trait EmitterBuilderExecution[+O, +R, +Exec <: EmitterBuilder.Execution] {
 
   def mapFilter[T](f: O => Option[T]): EmitterBuilderExecution[T, R, Exec] = transformSinkWithExec(_.contramapFilter(f))
 
+  def scan[T](seed: T)(f: (T, O) => T): EmitterBuilderExecution[T, R, Exec] = transformSinkWithExec[T](_.contrascan(seed)(f))
+
+  def scanSingle[T](seed: T)(f: T => T): EmitterBuilderExecution[T, R, Exec] = scan(seed)((t,_) => f(t))
+
   @inline def use[T](value: T): EmitterBuilderExecution[T, R, Exec] = map(_ => value)
   @inline def useLazy[T](value: => T): EmitterBuilderExecution[T, R, Exec] = map(_ => value)
 
@@ -86,11 +90,6 @@ trait EmitterBuilderExecution[+O, +R, +Exec <: EmitterBuilder.Execution] {
   def withLatest[F[_] : Source, T](latest: F[T]): EmitterBuilderExecution[(O, T), R, Exec] =
     transformWithExec[(O, T)](source => SourceStream.withLatestFrom(source)(latest)(_ -> _))
 
-  def scan[T](seed: T)(f: (T, O) => T): EmitterBuilderExecution[T, R, Exec] =
-    transformWithExec[T](source => SourceStream.scan(source)(seed)(f))
-
-  def scanSingle[T](seed: T)(f: T => T): EmitterBuilderExecution[T, R, Exec] = scan(seed)((t,_) => f(t))
-
   def debounce(duration: FiniteDuration): EmitterBuilder[O, R] =
     transformWithExec[O](source => SourceStream.debounce(source)(duration))
 
@@ -105,6 +104,12 @@ trait EmitterBuilderExecution[+O, +R, +Exec <: EmitterBuilder.Execution] {
 
   def delayMillis(millis: Int): EmitterBuilder[O, R] =
     transformWithExec[O](source => SourceStream.delayMillis(source)(millis))
+
+  def sample(duration: FiniteDuration): EmitterBuilder[O, R] =
+    transformWithExec[O](source => SourceStream.sample(source)(duration))
+
+  def sampleMillis(millis: Int): EmitterBuilder[O, R] =
+    transformWithExec[O](source => SourceStream.sampleMillis(source)(millis))
 
   def concatMapFuture[T](f: O => Future[T]): EmitterBuilder[T, R] =
     transformWithExec[T](source => SourceStream.concatMapFuture(source)(f))

@@ -222,6 +222,10 @@ object SourceStream {
     def subscribe[G[_]: Sink](sink: G[_ >: A]): Subscription = Source[F].subscribe(source)(SinkObserver.contrafilter[G, A](sink)(f))
   }
 
+  def scan[F[_]: Source, A, B](source: F[A])(seed: B)(f: (B, A) => B): SourceStream[B] = new SourceStream[B] {
+    def subscribe[G[_]: Sink](sink: G[_ >: B]): Subscription = Source[F].subscribe(source)(SinkObserver.contrascan[G, B, A](sink)(seed)(f))
+  }
+
   def mapTry[F[_]: Source, A, B](source: F[A])(f: A => Try[B]): SourceStream[B] = new SourceStream[B] {
     def subscribe[G[_]: Sink](sink: G[_ >: B]): Subscription = Source[F].subscribe(source)(SinkObserver.createUnhandled[A](
       value => f(value) match {
@@ -240,20 +244,6 @@ object SourceStream {
           case Some(v) => v.foreach(Sink[G].onNext(sink)(_))
           case None => Sink[G].onError(sink)(error)
         }
-      })
-    }
-  }
-
-  def scan[F[_]: Source, A, B](source: F[A])(seed: B)(f: (B, A) => B): SourceStream[B] = new SourceStream[B] {
-    def subscribe[G[_]: Sink](sink: G[_ >: B]): Subscription = {
-      var state = seed
-
-      Sink[G].onNext(sink)(seed)
-
-      Source[F].subscribe(source)(SinkObserver.contramap[G, B, A](sink) { value =>
-        val result = f(state, value)
-        state = result
-        result
       })
     }
   }
