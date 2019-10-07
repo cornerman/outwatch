@@ -91,10 +91,6 @@ object SourceStream {
 
   def fromFuture[A](future: Future[A]): SourceStream[A] = fromAsync(IO.fromFuture(IO.pure(future))(IO.contextShift(global)))
 
-  def transformSink[F[_]: Source, A,B](source: F[A])(transform: SinkObserver[_ >: B] => SinkObserver[A]): SourceStream[B] = new SourceStream[B] {
-    def subscribe[G[_]: Sink](sink: G[_ >: B]): Subscription = Source[F].subscribe(source)(transform(SinkObserver.lift(sink)))
-  }
-
   def failed[S[_]: Source, A](source: S[A]): SourceStream[Throwable] = new SourceStream[Throwable] {
     def subscribe[G[_]: Sink](sink: G[_ >: Throwable]): Subscription =
       Source[S].subscribe(source)(SinkObserver.createUnhandled[A](_ => (), Sink[G].onError(sink)(_)))
@@ -498,9 +494,21 @@ object SourceStream {
     }
   }
 
+  def transformSource[F[_]: Source, FF[_]: Source, A, B](source: F[A])(transform: F[A] => FF[B]): SourceStream[B] = new SourceStream[B] {
+    def subscribe[G[_]: Sink](sink: G[_ >: B]): Subscription = Source[FF].subscribe(transform(source))(sink)
+  }
+
+  def transformSink[F[_]: Source, G[_]: LiftSink, GG[_]: Sink, A, B](source: F[A])(transform: G[_ >: B] => GG[A]): SourceStream[B] = new SourceStream[B] {
+    def subscribe[GGG[_]: Sink](sink: GGG[_ >: B]): Subscription = Source[F].subscribe(source)(transform(LiftSink[G].lift(sink)))
+  }
+
   @inline def share[F[_]: Source, A](source: F[A]): SourceStream[A] = pipeThrough(source)(SinkSourceHandler.publish[A])
   @inline def shareWithLatest[F[_]: Source, A](source: F[A]): SourceStream[A] = pipeThrough(source)(SinkSourceHandler[A])
-  @inline def shareWithLatestAndSeed[F[_]: Source, A](source: F[A])(seed: A): SourceStream[A] = pipeThrough(source)(SinkSourceHandler[A](seed))
+  @inline def shareWithLatestSeed[F[_]: Source, A](source: F[A])(seed: A): SourceStream[A] = pipeThrough(source)(SinkSourceHandler[A](seed))
+
+  @inline def shareSelector[F[_]: Source, A, B](source: F[A])(f: SourceStream[A] => SourceStream[B]): SourceStream[B] = transformSource(source)(s => f(share(s)))
+  @inline def shareWithLatestSelector[F[_]: Source, A, B](source: F[A])(f: SourceStream[A] => SourceStream[B]): SourceStream[B] = transformSource(source)(s => f(shareWithLatest(s)))
+  @inline def shareWithLatestSeedSelector[F[_]: Source, A, B](source: F[A])(seed: A)(f: SourceStream[A] => SourceStream[B]): SourceStream[B] = transformSource(source)(s => f(shareWithLatestSeed(s)(seed)))
 
   def pipeThrough[F[_]: Source, A, S[_] : Source : Sink](source: F[A])(pipe: S[A]): SourceStream[A] = new SourceStream[A] {
     private var subscribers = 0
@@ -706,7 +714,12 @@ object SourceStream {
     @inline def recoverOption(f: PartialFunction[Throwable, Option[A]]): SourceStream[A] = SourceStream.recoverOption(source)(f)
     @inline def share: SourceStream[A] = SourceStream.share(source)
     @inline def shareWithLatest: SourceStream[A] = SourceStream.shareWithLatest(source)
-    @inline def shareWithLatestAndSeed(seed: A): SourceStream[A] = SourceStream.shareWithLatestAndSeed(source)(seed)
+    @inline def shareWithLatestSeed(seed: A): SourceStream[A] = SourceStream.shareWithLatestSeed(source)(seed)
+    @inline def shareSelector[B](f: SourceStream[A] => SourceStream[B]): SourceStream[B] = SourceStream.shareSelector(source)(f)
+    @inline def shareWithLatestSelector[B](f: SourceStream[A] => SourceStream[B]): SourceStream[B] = SourceStream.shareWithLatestSelector(source)(f)
+    @inline def shareWithLatestSeedSelector[B](seed: A)(f: SourceStream[A] => SourceStream[B]): SourceStream[B] = SourceStream.shareWithLatestSeedSelector(source)(seed)(f)
+    @inline def transformSource[S[_]: Source, B](transform: SourceStream[A] => S[B]): SourceStream[B] = SourceStream.transformSource(source)(transform)
+    @inline def transformSink[G[_]: LiftSink, GG[_]: Sink, B](transform: G[_ >: B] => GG[A]): SourceStream[B] = SourceStream.transformSink[SourceStream, G, GG, A, B](source)(transform)
     @inline def prepend(value: A): SourceStream[A] = SourceStream.prepend(source)(value)
     @inline def prependSync[F[_] : RunSyncEffect](value: F[A]): SourceStream[A] = SourceStream.prependSync(source)(value)
     @inline def prependAsync[F[_] : Effect](value: F[A]): SourceStream[A] = SourceStream.prependAsync(source)(value)

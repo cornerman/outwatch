@@ -96,9 +96,10 @@ object SinkObserver {
   }
 
   def redirect[G[_] : Sink, S[_] : Source, A, B](sink: G[_ >: A])(transform: SourceStream[B] => S[A]): Connectable[B] = {
-    val handler = SinkSourceHandler.publish[B]
+    val handler = SinkSourceHandler.publishToOne[B]
     val source = transform(handler)
-    connectable(handler, () => Source[S].subscribe(source)(sink))
+    val subscription = Subscription.refCount(() => Source[S].subscribe(source)(sink))
+    connectable(handler, () => subscription.ref())
   }
 
   implicit object liftSink extends LiftSink[SinkObserver] {

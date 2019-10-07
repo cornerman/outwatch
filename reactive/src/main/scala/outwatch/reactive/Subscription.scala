@@ -45,6 +45,38 @@ object Subscription {
     }
   }
 
+  class RefCount(subscription: () => Subscription) extends Subscription {
+    private var current: Subscription = null
+    private var counter = 0
+
+    def ref(): Subscription = if (counter == -1) Subscription.empty else {
+      if (current == null) {
+        counter = 1
+        current = subscription()
+        this
+      } else {
+        counter += 1
+        this
+      }
+
+      Subscription { () =>
+        counter -= 1
+        if (counter == 0) {
+          current.cancel()
+          current = null
+        }
+      }
+    }
+
+    def cancel(): Unit = {
+      counter = -1
+      if (current != null) {
+        current.cancel()
+        current = null
+      }
+    }
+  }
+
   class Consecutive extends Subscription {
     private var latest: Subscription = null
     private var subscriptions: js.Array[() => Subscription] = new js.Array[() => Subscription]
@@ -89,7 +121,11 @@ object Subscription {
   @inline def empty = Empty
 
   @inline def apply(f: () => Unit) = new Subscription {
-    @inline def cancel() = f()
+    private var isDone = false
+    @inline def cancel() = if (!isDone) {
+      isDone = true
+      f()
+    }
   }
 
   @inline def lift[T : CancelSubscription](subscription: T) = apply(() => CancelSubscription[T].cancel(subscription))
@@ -104,6 +140,8 @@ object Subscription {
   @inline def variable(): Variable = new Variable
 
   @inline def consecutive(): Consecutive = new Consecutive
+
+  @inline def refCount(subscription: () => Subscription): RefCount = new RefCount(subscription)
 
   implicit object monoid extends Monoid[Subscription] {
     @inline def empty = Subscription.empty
