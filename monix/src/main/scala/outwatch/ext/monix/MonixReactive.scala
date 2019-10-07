@@ -68,14 +68,12 @@ trait MonixReactive {
   type MonixHandler[T] = MonixProHandler[T,T]
 
   implicit object monixCreateHandler extends CreateHandler[MonixHandler] {
-    def variable[A]: MonixHandler[A] = MonixHandler.create[A]
-    def variable[A](seed: A): MonixHandler[A] = MonixHandler.create[A](seed)
+    def behavior[A]: MonixHandler[A] = MonixHandler.create[A]
+    def behavior[A](seed: A): MonixHandler[A] = MonixHandler.create[A](seed)
     def publisher[A]: MonixHandler[A] = MonixHandler.publish[A]
   }
 
   implicit object monixCreateProHandler extends CreateProHandler[MonixProHandler] {
-    def apply[I,O](f: I => O): MonixProHandler[I,O] = MonixProHandler.create(f)
-    def apply[I,O](seed: I)(f: I => O): MonixProHandler[I,O] = MonixProHandler.create(seed)(f)
     @inline def from[SI[_] : Sink, SO[_] : Source, I,O](sink: SI[I], source: SO[O]): MonixProHandler[I, O] = MonixProHandler(LiftSink[Observer].lift(sink), LiftSource[Observable].lift(source))
   }
 

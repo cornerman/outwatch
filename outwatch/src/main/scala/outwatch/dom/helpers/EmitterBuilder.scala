@@ -153,7 +153,7 @@ object EmitterBuilder {
   }
 
   @inline final class Stream[S[_] : Source, +O, +R: SubscriptionOwner](source: S[O], result: R) extends EmitterBuilderExecution[O, R, Execution] {
-    @inline private[helpers] def transformSinkWithExec[T](f: SinkObserver[T] => SinkObserver[O]): EmitterBuilderExecution[T, R, Execution] = new Stream(SourceStream.transformSink(source)(f), result)
+    @inline private[helpers] def transformSinkWithExec[T](f: SinkObserver[T] => SinkObserver[O]): EmitterBuilderExecution[T, R, Execution] = new Stream(SourceStream.transformSink[S, SinkObserver, SinkObserver, O, T](source)(f), result)
     @inline private[helpers] def transformWithExec[T](f: SourceStream[O] => SourceStream[T]): EmitterBuilderExecution[T, R, Execution] = new Stream(f(SourceStream.lift(source)), result)
     @inline def forwardTo[F[_] : Sink](sink: F[_ >: O]): R = SubscriptionOwner[R].own(result)(() => Source[S].subscribe(source)(sink))
   }
@@ -166,12 +166,12 @@ object EmitterBuilder {
 
   @inline final class TransformSink[+I, +O, +R: SubscriptionOwner, Exec <: Execution](base: EmitterBuilderExecution[I, R, Exec], transformF: SinkObserver[O] => SinkObserver[I]) extends EmitterBuilderExecution[O, R, Exec] {
     @inline private[helpers] def transformSinkWithExec[T](f: SinkObserver[T] => SinkObserver[O]): EmitterBuilderExecution[T, R, Exec] = new TransformSink(base, s => transformF(f(s)))
-    @inline private[helpers] def transformWithExec[T](f: SourceStream[O] => SourceStream[T]): EmitterBuilderExecution[T, R, Exec] = new Transform[I, T, R, Exec](base, s => f(SourceStream.transformSink(s)(transformF)))
+    @inline private[helpers] def transformWithExec[T](f: SourceStream[O] => SourceStream[T]): EmitterBuilderExecution[T, R, Exec] = new Transform[I, T, R, Exec](base, s => f(SourceStream.transformSink[SourceStream, SinkObserver, SinkObserver, I, O](s)(transformF)))
     @inline def forwardTo[F[_] : Sink](sink: F[_ >: O]): R = base.forwardTo(transformF(SinkObserver.lift(sink)))
   }
 
   @inline final class Transform[+I, +O, +R: SubscriptionOwner, Exec <: Execution](base: EmitterBuilderExecution[I, R, Exec], transformF: SourceStream[I] => SourceStream[O]) extends EmitterBuilderExecution[O, R, Exec] {
-    @inline private[helpers] def transformSinkWithExec[T](f: SinkObserver[T] => SinkObserver[O]): EmitterBuilderExecution[T, R, Exec] = new Transform[I, T, R, Exec](base, s => SourceStream.transformSink(transformF(s))(f))
+    @inline private[helpers] def transformSinkWithExec[T](f: SinkObserver[T] => SinkObserver[O]): EmitterBuilderExecution[T, R, Exec] = new Transform[I, T, R, Exec](base, s => SourceStream.transformSink[SourceStream, SinkObserver, SinkObserver, O, T](transformF(s))(f))
     @inline private[helpers] def transformWithExec[T](f: SourceStream[O] => SourceStream[T]): EmitterBuilderExecution[T, R, Exec] = new Transform[I, T, R, Exec](base, s => f(transformF(s)))
     @inline def forwardTo[F[_] : Sink](sink: F[_ >: O]): R = forwardToInTransform(base, transformF, sink)
   }

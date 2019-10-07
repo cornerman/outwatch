@@ -4,16 +4,15 @@ import scala.scalajs.js
 
 trait SinkSourceHandler[-I, +O] extends SinkObserver[I] with SourceStream[O]
 
-class SinkSourceVariable[I, O](private var current: Option[O], convert: I => O) extends SinkSourceHandler[I, O] {
+class SinkSourceBehavior[A](private var current: Option[A]) extends SinkSourceHandler[A, A] {
 
-  private var subscribers = new js.Array[SinkObserver[O]]
+  private var subscribers = new js.Array[SinkObserver[A]]
   private var isRunning = false
 
-  def onNext(value: I): Unit = {
+  def onNext(value: A): Unit = {
     isRunning = true
-    val converted = convert(value)
-    current = Some(converted)
-    subscribers.foreach(_.onNext(converted))
+    current = Some(value)
+    subscribers.foreach(_.onNext(value))
     isRunning = false
   }
 
@@ -23,7 +22,7 @@ class SinkSourceVariable[I, O](private var current: Option[O], convert: I => O) 
     isRunning = false
   }
 
-  def subscribe[G[_] : Sink](sink: G[_ >: O]): Subscription = {
+  def subscribe[G[_] : Sink](sink: G[_ >: A]): Subscription = {
     val observer = SinkObserver.lift(sink)
     subscribers.push(observer)
     current.foreach(observer.onNext)
@@ -34,15 +33,14 @@ class SinkSourceVariable[I, O](private var current: Option[O], convert: I => O) 
   }
 }
 
-class SinkSourcePublisher[I, O](convert: I => O) extends SinkSourceHandler[I, O] {
+class SinkSourcePublisher[A] extends SinkSourceHandler[A, A] {
 
-  private var subscribers = new js.Array[SinkObserver[O]]
+  private var subscribers = new js.Array[SinkObserver[A]]
   private var isRunning = false
 
-  def onNext(value: I): Unit = {
+  def onNext(value: A): Unit = {
     isRunning = true
-    val converted = convert(value)
-    subscribers.foreach(_.onNext(converted))
+    subscribers.foreach(_.onNext(value))
     isRunning = false
   }
 
@@ -52,7 +50,7 @@ class SinkSourcePublisher[I, O](convert: I => O) extends SinkSourceHandler[I, O]
     isRunning = false
   }
 
-  def subscribe[G[_] : Sink](sink: G[_ >: O]): Subscription = {
+  def subscribe[G[_] : Sink](sink: G[_ >: A]): Subscription = {
     val observer = SinkObserver.lift(sink)
     subscribers.push(observer)
     Subscription { () =>
@@ -60,6 +58,27 @@ class SinkSourcePublisher[I, O](convert: I => O) extends SinkSourceHandler[I, O]
       else JSArrayHelper.removeElement(subscribers)(observer)
     }
   }
+}
+
+class SinkSourcePublisherToOne[A] extends SinkSourceHandler[A, A] {
+
+  private var subscriber: SinkObserver[A] = null
+
+  def onNext(value: A): Unit = if (subscriber != null) {
+    subscriber.onNext(value)
+  }
+
+  def onError(error: Throwable): Unit = if (subscriber != null) {
+    subscriber.onError(error)
+  }
+
+  def subscribe[G[_] : Sink](sink: G[_ >: A]): Subscription =
+    if (subscriber == null) {
+      subscriber = SinkObserver.lift(sink)
+      Subscription { () => subscriber = null }
+    } else {
+      throw new IllegalStateException("Single Publisher has more than one subscriber")
+    }
 }
 
 @inline class SinkSourceCombinator[SI[_] : Sink, SO[_] : Source, I, O](sink: SI[I], source: SO[O]) extends SinkSourceHandler[I, O] {
@@ -74,17 +93,11 @@ class SinkSourcePublisher[I, O](convert: I => O) extends SinkSourceHandler[I, O]
 object SinkSourceHandler {
   type Simple[T] = SinkSourceHandler[T,T]
 
-  def apply[O]: Simple[O] = new SinkSourceVariable[O, O](None, identity)
-  def apply[O](seed: O): Simple[O] = new SinkSourceVariable[O, O](Some(seed), identity)
+  def apply[O]: Simple[O] = new SinkSourceBehavior[O](None)
+  def apply[O](seed: O): Simple[O] = new SinkSourceBehavior[O](Some(seed))
 
-  def map[I, O](convert: I => O): SinkSourceHandler[I, O] = new SinkSourceVariable[I, O](None, convert)
-  def map[I, O](seed: I)(convert: I => O): SinkSourceHandler[I, O] = new SinkSourceVariable[I, O](Some(convert(seed)), convert)
-
-  object publish {
-    def apply[O]: Simple[O] = new SinkSourcePublisher[O, O](identity)
-
-    def map[I, O](convert: I => O): SinkSourceHandler[I, O] = new SinkSourcePublisher[I, O](convert)
-  }
+  def publish[O]: Simple[O] = new SinkSourcePublisher[O]
+  def publishToOne[O]: Simple[O] = new SinkSourcePublisherToOne[O]
 
   @inline def from[SI[_] : Sink, SO[_] : Source, I, O](sink: SI[I], source: SO[O]): SinkSourceHandler[I, O] = new SinkSourceCombinator[SI, SO, I, O](sink, source)
 
@@ -96,12 +109,10 @@ object SinkSourceHandler {
 
   object createHandler extends CreateHandler[Simple] {
     @inline def publisher[A]: SinkSourceHandler[A, A] = SinkSourceHandler.publish[A]
-    @inline def variable[A]: SinkSourceHandler[A, A] = SinkSourceHandler.apply[A]
-    @inline def variable[A](seed: A): SinkSourceHandler[A, A] = SinkSourceHandler.apply[A](seed)
+    @inline def behavior[A]: SinkSourceHandler[A, A] = SinkSourceHandler.apply[A]
+    @inline def behavior[A](seed: A): SinkSourceHandler[A, A] = SinkSourceHandler.apply[A](seed)
   }
   object createProHandler extends CreateProHandler[SinkSourceHandler] {
-    @inline def apply[I,O](f: I => O): SinkSourceHandler[I,O] = SinkSourceHandler.map(f)
-    @inline def apply[I,O](seed: I)(f: I => O): SinkSourceHandler[I,O] = SinkSourceHandler.map(seed)(f)
     @inline def from[SI[_] : Sink, SO[_] : Source, I,O](sink: SI[I], source: SO[O]): SinkSourceHandler[I, O] = SinkSourceHandler.from(sink, source)
   }
 }

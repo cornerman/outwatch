@@ -3707,4 +3707,44 @@ class OutWatchDomSpec extends JSDomAsyncSpec {
       _ = element.innerHTML shouldBe "no"
     } yield succeed
   }
+
+  it should "work referentially transparent" in {
+
+    var received1 = List[Int]()
+    var received2 = List[Int]()
+
+    val sink1 = SinkObserver.create[Int] { x =>
+      received1 ::= x
+    }
+    val sink2 = SinkObserver.create[Int] { x =>
+      received2 ::= x
+    }
+
+    def newClickableView() = onClick.use(0).transform(s => SourceStream.merge(SourceStream.fromIterable(Seq(1,2,3)), s))
+
+    val clickableView = newClickableView() --> sink1
+
+    val node = div(
+      id := "strings",
+      newClickableView() --> sink2,
+      newClickableView() --> sink2,
+      clickableView,
+      clickableView
+    )
+
+    OutWatch.renderInto[IO]("#app", node).map { _ =>
+      val element = document.getElementById("strings")
+
+      received1 shouldBe List(3,2,1,3,2,1)
+      received2 shouldBe List(3,2,1,3,2,1)
+      element.innerHTML shouldBe ""
+
+      sendEvent(element, "click")
+
+      // received1 shouldBe List(0,0,3,2,1,3,2,1)
+      received2 shouldBe List(0,0,3,2,1,3,2,1)
+      element.innerHTML shouldBe ""
+
+    }
+  }
 }
