@@ -3720,7 +3720,10 @@ class OutWatchDomSpec extends JSDomAsyncSpec {
       received2 ::= x
     }
 
-    def newClickableView() = onClick.use(0).transform(s => SourceStream.merge(SourceStream.fromIterable(Seq(1,2,3)), s))
+    val behavior = Internal.unsafe[Int](22)
+    val publisher = Internal.publish.unsafe[Int]
+
+    def newClickableView() = onClick.use(0).transform(s => SourceStream.merge(SourceStream.fromIterable(Seq(1,2,3)), s, behavior, publisher))
 
     val clickableView = newClickableView() --> sink1
 
@@ -3735,16 +3738,91 @@ class OutWatchDomSpec extends JSDomAsyncSpec {
     OutWatch.renderInto[IO]("#app", node).map { _ =>
       val element = document.getElementById("strings")
 
-      received1 shouldBe List(3,2,1,3,2,1)
-      received2 shouldBe List(3,2,1,3,2,1)
+      received1 shouldBe List(22,3,2,1,22,3,2,1)
+      received2 shouldBe List(22,3,2,1,22,3,2,1)
       element.innerHTML shouldBe ""
 
       sendEvent(element, "click")
 
-      // received1 shouldBe List(0,0,3,2,1,3,2,1)
-      received2 shouldBe List(0,0,3,2,1,3,2,1)
+      received1 shouldBe List(0,0,22,3,2,1,22,3,2,1)
+      received2 shouldBe List(0,0,22,3,2,1,22,3,2,1)
       element.innerHTML shouldBe ""
 
+    }
+  }
+
+  it should "work referentially transparent 2" in {
+
+    var received1 = List[Int]()
+    var received2 = List[Int]()
+
+    val sink1 = SinkObserver.create[Int] { x =>
+      received1 ::= x
+    }
+    val sink2 = SinkObserver.create[Int] { x =>
+      received2 ::= x
+    }
+
+    val publisher1 = Internal.publish.unsafe[Int]
+    val publisher2 = Internal.publish.unsafe[Int]
+    var currentHandler = publisher1
+
+    def newClickableView() = onClick.use(0).transform(_.switchMap(_ => currentHandler))
+
+    val clickableView = newClickableView() --> sink1
+
+    val node = div(
+      id := "strings",
+      clickableView,
+      clickableView,
+      newClickableView() --> sink2,
+      newClickableView() --> sink2,
+    )
+
+    OutWatch.renderInto[IO]("#app", node).map { _ =>
+      val element = document.getElementById("strings")
+
+      received1 shouldBe Nil
+      received2 shouldBe Nil
+      element.innerHTML shouldBe ""
+
+      sendEvent(element, "click")
+
+      received1 shouldBe Nil
+      received2 shouldBe Nil
+
+      element.innerHTML shouldBe ""
+
+      publisher1.onNext(1)
+
+      received1 shouldBe List(1,1)
+      received2 shouldBe List(1,1)
+
+      publisher2.onNext(2)
+
+      received1 shouldBe List(1,1)
+      received2 shouldBe List(1,1)
+
+      currentHandler = publisher2
+      sendEvent(element, "click")
+
+      received1 shouldBe List(1,1)
+      received2 shouldBe List(1,1)
+
+      publisher1.onNext(10)
+
+      received1 shouldBe List(1,1)
+      received2 shouldBe List(1,1)
+
+      publisher2.onNext(20)
+
+      received1 shouldBe List(20,20,1,1)
+      received2 shouldBe List(20,20,1,1)
+
+      publisher2.onNext(30)
+
+      received1 shouldBe List(30,30,20,20,1,1)
+      received2 shouldBe List(30,30,20,20,1,1)
     }
   }
 }

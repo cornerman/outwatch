@@ -73,7 +73,7 @@ class SinkSourcePublisherToOne[A] extends SinkSourceHandler[A, A] {
   }
 
   def subscribe[G[_] : Sink](sink: G[_ >: A]): Subscription =
-    if (subscriber == null) {
+    if (subscriber != null) {
       subscriber = SinkObserver.lift(sink)
       Subscription { () => subscriber = null }
     } else {
