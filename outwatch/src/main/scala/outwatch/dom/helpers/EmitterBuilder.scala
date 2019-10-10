@@ -1,6 +1,6 @@
 package outwatch.dom.helpers
 
-import cats.{Monoid, Functor, Bifunctor}
+import cats.{Monoid, Functor, Bifunctor, Id}
 import cats.effect.{Effect, Sync => SyncCats, SyncIO}
 import org.scalajs.dom.{Element, Event, html, svg}
 import outwatch.dom._
@@ -36,14 +36,14 @@ import scala.concurrent.duration.FiniteDuration
 //
 
 
-trait EmitterBuilderExecution[+O, +R, +Exec <: EmitterBuilder.Execution] {
+trait EmitterBuilderExecution[+O, +R, X[_], +Exec <: EmitterBuilder.Execution] {
 
   @inline def forwardTo[F[_] : Sink](sink: F[_ >: O]): R
 
   // this method keeps the current Execution but actually, the caller must decide,
   // whether this really keeps the execution type or might be async. Therefore private.
-  @inline private[helpers] def transformWithExec[T](f: SourceStream[O] => SourceStream[T]): EmitterBuilderExecution[T, R, Exec]
-  @inline private[helpers] def transformSinkWithExec[T](f: SinkObserver[T] => SinkObserver[O]): EmitterBuilderExecution[T, R, Exec]
+  @inline private[helpers] def transformWithExec[T](f: SourceStream[O] => SourceStream[T]): EmitterBuilderExecution[T, R, X, Exec]
+  @inline private[helpers] def transformSinkWithExec[T](f: SinkObserver[T] => SinkObserver[O]): EmitterBuilderExecution[T, R, X, Exec]
 
   @inline def -->[F[_] : Sink](sink: F[_ >: O]): R = forwardTo(sink)
 
@@ -58,36 +58,36 @@ trait EmitterBuilderExecution[+O, +R, +Exec <: EmitterBuilder.Execution] {
   @inline def foreachAsync[G[_] : Effect](action: O => G[Unit]): R = concatMapAsync(action).discard
   @inline def doAsync[G[_] : Effect](action: G[Unit]): R = foreachAsync(_ => action)
 
-  def map[T](f: O => T): EmitterBuilderExecution[T, R, Exec] = transformSinkWithExec(_.contramap(f))
+  def map[T](f: O => T): EmitterBuilderExecution[T, R, X, Exec] = transformSinkWithExec(_.contramap(f))
 
-  def collect[T](f: PartialFunction[O, T]): EmitterBuilderExecution[T, R, Exec] = transformSinkWithExec(_.contracollect(f))
+  def collect[T](f: PartialFunction[O, T]): EmitterBuilderExecution[T, R, X, Exec] = transformSinkWithExec(_.contracollect(f))
 
-  def filter(predicate: O => Boolean): EmitterBuilderExecution[O, R, Exec] = transformSinkWithExec(_.contrafilter(predicate))
+  def filter(predicate: O => Boolean): EmitterBuilderExecution[O, R, X, Exec] = transformSinkWithExec(_.contrafilter(predicate))
 
-  def mapFilter[T](f: O => Option[T]): EmitterBuilderExecution[T, R, Exec] = transformSinkWithExec(_.contramapFilter(f))
+  def mapFilter[T](f: O => Option[T]): EmitterBuilderExecution[T, R, X, Exec] = transformSinkWithExec(_.contramapFilter(f))
 
-  def scan[T](seed: T)(f: (T, O) => T): EmitterBuilderExecution[T, R, Exec] = transformSinkWithExec[T](_.contrascan(seed)(f))
+  def scan[T](seed: T)(f: (T, O) => T): EmitterBuilderExecution[T, R, X, Exec] = transformSinkWithExec[T](_.contrascan(seed)(f))
 
-  def scanSingle[T](seed: T)(f: T => T): EmitterBuilderExecution[T, R, Exec] = scan(seed)((t,_) => f(t))
+  @inline def useScan[T](seed: T)(f: T => T): EmitterBuilderExecution[T, R, X, Exec] = scan(seed)((t,_) => f(t))
 
   @inline def use[T](value: T): EmitterBuilderExecution[T, R, Exec] = map(_ => value)
-  @inline def useLazy[T](value: => T): EmitterBuilderExecution[T, R, Exec] = map(_ => value)
+  @inline def useLazy[T](value: => T): EmitterBuilderExecution[T, R, X, Exec] = map(_ => value)
 
   @deprecated("Use .useLazy(value) instead", "")
-  @inline def mapTo[T](value: => T): EmitterBuilderExecution[T, R, Exec] = useLazy(value)
+  @inline def mapTo[T](value: => T): EmitterBuilderExecution[T, R, X, Exec] = useLazy(value)
   @deprecated("Use .use(value) instead", "")
-  @inline def apply[T](value: T): EmitterBuilderExecution[T, R, Exec] = use(value)
+  @inline def apply[T](value: T): EmitterBuilderExecution[T, R, X, Exec] = use(value)
 
-  @inline def useSync[G[_]: RunSyncEffect, T](value: G[T]): EmitterBuilderExecution[T, R, Exec] = mapSync(_ => value)
+  @inline def useSync[G[_]: RunSyncEffect, T](value: G[T]): EmitterBuilderExecution[T, R, X, Exec] = mapSync(_ => value)
 
   @inline def useAsync[G[_]: Effect, T](value: G[T]): EmitterBuilder[T, R] = concatMapAsync(_ => value)
 
-  @inline def apply[G[_] : Source, T](source: G[T]): EmitterBuilderExecution[T, R, Exec] = useLatest(source)
+  @inline def apply[G[_] : Source, T](source: G[T]): EmitterBuilderExecution[T, R, X, Exec] = useLatest(source)
 
-  def useLatest[F[_] : Source, T](latest: F[T]): EmitterBuilderExecution[T, R, Exec] =
+  def useLatest[F[_] : Source, T](latest: F[T]): EmitterBuilderExecution[T, R, X, Exec] =
     transformWithExec[T](source => SourceStream.withLatestFrom(source)(latest)((_, u) => u))
 
-  def withLatest[F[_] : Source, T](latest: F[T]): EmitterBuilderExecution[(O, T), R, Exec] =
+  def withLatest[F[_] : Source, T](latest: F[T]): EmitterBuilderExecution[(O, T), R, X, Exec] =
     transformWithExec[(O, T)](source => SourceStream.withLatestFrom(source)(latest)(_ -> _))
 
   def debounce(duration: FiniteDuration): EmitterBuilder[O, R] =
@@ -117,7 +117,7 @@ trait EmitterBuilderExecution[+O, +R, +Exec <: EmitterBuilder.Execution] {
   def concatMapAsync[G[_]: Effect, T](f: O => G[T]): EmitterBuilder[T, R] =
     transformWithExec[T](source => SourceStream.concatMapAsync(source)(f))
 
-  def mapSync[G[_]: RunSyncEffect, T](f: O => G[T]): EmitterBuilderExecution[T, R, Exec] =
+  def mapSync[G[_]: RunSyncEffect, T](f: O => G[T]): EmitterBuilderExecution[T, R, X, Exec] =
     transformWithExec[T](source => SourceStream.mapSync(source)(f))
 
   def transformLifted[F[_] : Source : LiftSource, OO >: O, T](f: F[OO] => F[T]): EmitterBuilder[T, R] =
@@ -130,7 +130,7 @@ trait EmitterBuilderExecution[+O, +R, +Exec <: EmitterBuilder.Execution] {
   @inline def transform[T](f: SourceStream[O] => SourceStream[T]): EmitterBuilder[T, R] = transformWithExec(f)
   @inline def transformSink[T](f: SinkObserver[T] => SinkObserver[O]): EmitterBuilder[T, R] = transformSinkWithExec(f)
 
-  @inline def mapResult[S](f: R => S): EmitterBuilderExecution[O, S, Exec] = new EmitterBuilder.MapResult[O, R, S, Exec](this, f)
+  @inline def mapResult[S](f: R => S): EmitterBuilderExecution[O, S, X, Exec] = new EmitterBuilder.MapResult[O, R, S, Exec](this, f)
 }
 
 object EmitterBuilder {
@@ -138,7 +138,7 @@ object EmitterBuilder {
   sealed trait Execution
   sealed trait SyncExecution extends Execution
 
-  type Sync[+O, +R] = EmitterBuilderExecution[O, R, SyncExecution]
+  type Sync[+O, +R] = EmitterBuilderExecution[O, R, Id, SyncExecution]
 
   @inline final class MapResult[+O, +I, +R, +Exec <: Execution](base: EmitterBuilder[O, I], mapF: I => R) extends EmitterBuilderExecution[O, R, Exec] {
     @inline private[helpers] def transformSinkWithExec[T](f: SinkObserver[T] => SinkObserver[O]): EmitterBuilderExecution[T, R, Exec] = new MapResult(base.transformSink(f), mapF)
@@ -276,7 +276,7 @@ object EmitterBuilder {
     @inline def asSvg: EmitterBuilder.Sync[(svg.Element, svg.Element), R] = builder.asInstanceOf[EmitterBuilder.Sync[(svg.Element, svg.Element), R]]
   }
 
-  @noinline private def combineWithLatestEmitter[O, T, R : Monoid : SubscriptionOwner, Exec <: Execution](sourceEmitter: EmitterBuilderExecution[O, R, Exec], latestEmitter: EmitterBuilder[T, R]): EmitterBuilderExecution[(O, T), SyncIO[R], Exec] =
+  @noinline private def combineWithLatestEmitter[O, T, R : Monoid : SubscriptionOwner, X[_], Exec <: Execution](sourceEmitter: EmitterBuilderExecution[O, R, X, Exec], latestEmitter: EmitterBuilder[T, R]): EmitterBuilderExecution[(O, T), SyncIO[R], X, Exec] =
     new Custom[(O, T), SyncIO[R], Exec]({ sink =>
       import scala.scalajs.js
 

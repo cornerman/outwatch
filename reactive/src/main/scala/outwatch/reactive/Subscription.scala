@@ -59,13 +59,13 @@ object Subscription {
         this
       }
 
-      Subscription { () =>
+      Subscription { () => if (counter != -1) {
         counter -= 1
         if (counter == 0) {
           current.cancel()
           current = null
         }
-      }
+      }}
     }
 
     def cancel(): Unit = {

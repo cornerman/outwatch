@@ -1686,7 +1686,7 @@ class OutWatchDomSpec extends JSDomAsyncSpec {
     val counter: VDomModifier = button(
       id := "click",
       Handler.create[Int].map { handler =>
-        VDomModifier(onClick.scanSingle(0)(_ + 1) --> handler, handler)
+        VDomModifier(onClick.useScan(0)(_ + 1) --> handler, handler)
       }
     )
 
@@ -1708,7 +1708,7 @@ class OutWatchDomSpec extends JSDomAsyncSpec {
   it should "to render basic handler with scan directly from EmitterBuilder" in {
     val counter: VDomModifier = button(
       id := "click",
-      onClick.scanSingle(0)(_ + 1).handled(VDomModifier(_))
+      onClick.useScan(0)(_ + 1).handled(VDomModifier(_))
     )
 
     val vtree = div(counter)
@@ -3708,7 +3708,52 @@ class OutWatchDomSpec extends JSDomAsyncSpec {
     } yield succeed
   }
 
-  it should "work referentially transparent" in {
+  it should "be reusable after simple transform" in {
+
+    var received1 = List[Int]()
+    var received2 = List[Int]()
+
+    val sink1 = SinkObserver.create[Int] { x =>
+      received1 ::= x
+    }
+    val sink2 = SinkObserver.create[Int] { x =>
+      received2 ::= x
+    }
+
+    def newClickableView() = onClick.use(0).transform(s => s)
+
+    val clickableView = newClickableView() --> sink1
+
+    val node = div(
+      id := "strings",
+      newClickableView() --> sink2,
+      newClickableView() --> sink2,
+      clickableView,
+      clickableView
+    )
+
+    OutWatch.renderInto[IO]("#app", node).map { _ =>
+      val element = document.getElementById("strings")
+
+      received1 shouldBe List()
+      received2 shouldBe List()
+      element.innerHTML shouldBe ""
+
+      sendEvent(element, "click")
+
+      received1 shouldBe List(0,0)
+      received2 shouldBe List(0,0)
+      element.innerHTML shouldBe ""
+
+      sendEvent(element, "click")
+
+      received1 shouldBe List(0,0,0,0)
+      received2 shouldBe List(0,0,0,0)
+      element.innerHTML shouldBe ""
+    }
+  }
+
+  it should "work referentially transparent 1" in {
 
     var received1 = List[Int]()
     var received2 = List[Int]()
@@ -3823,6 +3868,49 @@ class OutWatchDomSpec extends JSDomAsyncSpec {
 
       received1 shouldBe List(30,30,20,20,1,1)
       received2 shouldBe List(30,30,20,20,1,1)
+    }
+  }
+
+  it should "work referentially transparent 3" in {
+
+    var received1 = List[Int]()
+    var received2 = List[Int]()
+
+    val sink1 = SinkObserver.create[Int] { x =>
+      received1 ::= x
+    }
+    val sink2 = SinkObserver.create[Int] { x =>
+      received2 ::= x
+    }
+
+    def newClickableView() = onClick.useScan(0)(_ + 1)
+
+    val clickableView = newClickableView() --> sink1
+
+    val node = div(
+      id := "strings",
+      clickableView,
+      clickableView,
+      newClickableView() --> sink2,
+      newClickableView() --> sink2,
+    )
+
+    OutWatch.renderInto[IO]("#app", node).map { _ =>
+      val element = document.getElementById("strings")
+
+      received1 shouldBe Nil
+      received2 shouldBe Nil
+      element.innerHTML shouldBe ""
+
+      sendEvent(element, "click")
+
+      received1 shouldBe List(1,1)
+      received2 shouldBe List(1,1)
+
+      sendEvent(element, "click")
+
+      received1 shouldBe List(2,2,1,1)
+      received2 shouldBe List(2,2,1,1)
     }
   }
 }

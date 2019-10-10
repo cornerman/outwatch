@@ -90,16 +90,17 @@ object SinkObserver {
     def onError(error: Throwable): Unit = Sink[G].onError(sink)(error)
   }
 
-  def doOnError[G[_] : Sink, A](sink: G[_ >: A])(f: Throwable => Unit): SinkObserver[A] = new SinkObserver[A] {
-    def onNext(value: A): Unit = Sink[G].onNext(sink)(value)
-    def onError(error: Throwable): Unit = f(error)
-  }
-
+  // TODO return effect
   def redirect[G[_] : Sink, S[_] : Source, A, B](sink: G[_ >: A])(transform: SourceStream[B] => S[A]): Connectable[B] = {
-    val handler = SinkSourceHandler.publishToOne[B]
+    val handler = SinkSourceHandler.publish[B]
     val source = transform(handler)
     val subscription = Subscription.refCount(() => Source[S].subscribe(source)(sink))
     connectable(handler, () => subscription.ref())
+  }
+
+  def doOnError[G[_] : Sink, A](sink: G[_ >: A])(f: Throwable => Unit): SinkObserver[A] = new SinkObserver[A] {
+    def onNext(value: A): Unit = Sink[G].onNext(sink)(value)
+    def onError(error: Throwable): Unit = f(error)
   }
 
   implicit object liftSink extends LiftSink[SinkObserver] {
