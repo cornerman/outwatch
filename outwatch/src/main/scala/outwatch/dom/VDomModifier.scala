@@ -96,6 +96,8 @@ final class DomUnmountHook(val trigger: js.Function1[VNodeProxy, Unit]) extends 
 final class DomUpdateHook(val trigger: js.Function2[VNodeProxy, VNodeProxy, Unit]) extends DomHook
 final class DomPreUpdateHook(val trigger: js.Function2[VNodeProxy, VNodeProxy, Unit]) extends DomHook
 
+final class StaticCompositeModifier(val modifiers: js.Array[StaticVDomModifier]) extends StaticVDomModifier
+
 object EmptyModifier extends VDomModifier
 final class CompositeModifier(val modifiers: Iterable[VDomModifier]) extends VDomModifier
 final class StreamModifier(val subscription: SinkObserver[VDomModifier] => Subscription) extends VDomModifier

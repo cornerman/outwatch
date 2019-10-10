@@ -37,7 +37,7 @@ private[outwatch] class SeparatedModifiers {
 }
 
 private[outwatch] object SeparatedModifiers {
-  def from(modifiers: MutableNestedArray[StaticVDomModifier], prependModifiers: js.UndefOr[js.Array[StaticVDomModifier]] = js.undefined): SeparatedModifiers = {
+  def from(modifiers: js.Array[StaticVDomModifier], prependModifiers: js.UndefOr[js.Array[StaticVDomModifier]] = js.undefined): SeparatedModifiers = {
     val separatedModifiers = new SeparatedModifiers
     import separatedModifiers._
 
@@ -107,6 +107,9 @@ private[outwatch] object SeparatedModifiers {
         ()
       case k: Key =>
         keyOption = k.value
+        ()
+      case c: StaticCompositeModifier  =>
+        c.modifiers.foreach(append)
         ()
       case e: Emitter =>
         val emitters = assureEmitters()
@@ -201,7 +204,7 @@ private[outwatch] object SeparatedModifiers {
 //    - dynamic changes: collections of callbacks that fill the array of active modifiers
 
 private[outwatch] class NativeModifiers(
-  val modifiers: MutableNestedArray[StaticVDomModifier],
+  val modifiers: js.Array[StaticVDomModifier],
   val subscribables: MutableNestedArray[Subscribable],
   val hasStream: Boolean
 )
@@ -227,11 +230,11 @@ private[outwatch] class Subscribable(
 
 private[outwatch] object NativeModifiers {
   def from(appendModifiers: js.Array[_ <: VDomModifier]): NativeModifiers = {
-    val allModifiers = new MutableNestedArray[StaticVDomModifier]()
+    val allModifiers = new js.Array[StaticVDomModifier]()
     val allSubscribables = new MutableNestedArray[Subscribable]()
     var hasStream = false
 
-    def append(subscribables: MutableNestedArray[Subscribable], modifiers: MutableNestedArray[StaticVDomModifier], modifier: VDomModifier, inStream: Boolean): Unit = {
+    def append(subscribables: MutableNestedArray[Subscribable], modifiers: js.Array[StaticVDomModifier], modifier: VDomModifier, inStream: Boolean): Unit = {
 
       @inline def appendStatic(mod: StaticVDomModifier): Unit = {
         modifiers.push(mod)
@@ -241,7 +244,7 @@ private[outwatch] object NativeModifiers {
       @inline def appendStream(mod: StreamModifier): Unit = {
         hasStream = true
 
-        val streamedModifiers = new MutableNestedArray[StaticVDomModifier]()
+        val streamedModifiers = new js.Array[StaticVDomModifier]()
         val streamedSubscribables = new MutableNestedArray[Subscribable]()
 
         subscribables.push(new Subscribable(
@@ -253,7 +256,7 @@ private[outwatch] object NativeModifiers {
           })
         ))
 
-        modifiers.push(streamedModifiers)
+        modifiers.push(new StaticCompositeModifier(streamedModifiers))
         subscribables.push(streamedSubscribables)
         ()
       }
