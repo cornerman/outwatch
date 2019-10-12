@@ -140,5 +140,5 @@ object SinkObserver {
     @inline def redirect[G[_] : Source, B](f: SourceStream[B] => G[A]): SinkObserver.Connectable[B] = SinkObserver.redirect(sink)(f)
   }
 
-  @inline private def recovered(action: => Unit, onError: Throwable => Unit): Unit = try action catch { case NonFatal(t) => onError(t) }
+  private def recovered(action: => Unit, onError: Throwable => Unit): Unit = try action catch { case NonFatal(t) => onError(t) }
 }
