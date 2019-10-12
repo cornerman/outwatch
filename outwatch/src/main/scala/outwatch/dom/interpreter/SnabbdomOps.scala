@@ -94,7 +94,10 @@ private[outwatch] object SnabbdomOps {
     val vNodeNS = getNamespace(node)
     val vNodeId: Int = newNodeId()
 
-    val nativeModifiers = NativeModifiers.from(node.modifiers)
+    var patchFun: () => Unit = () => ()
+    val patchSink = SinkObserver.create[Unit](_ => patchFun(), OutwatchTracing.errorSubject.onNext)
+
+    val nativeModifiers = NativeModifiers.from(node.modifiers, patchSink)
 
     if (nativeModifiers.subscribables.isEmpty) {
       // if no dynamic/subscribable content, then just create a simple proxy
@@ -150,15 +153,12 @@ private[outwatch] object SnabbdomOps {
         }
       }
 
-      val patchSink = SinkObserver.create[Unit](
-        _ => invokeDoPatch(async = asyncPatchEnabled),
-        OutwatchTracing.errorSubject.onNext
-      )
+      patchFun = () => invokeDoPatch(async = asyncPatchEnabled)
 
       def start(): Unit = {
         resetTimeout()
         nativeModifiers.subscribables.foreach { subscribable =>
-          subscribable.subscribe(patchSink)
+          subscribable.subscribe()
         }
       }
 
@@ -192,13 +192,6 @@ private[outwatch] object SnabbdomOps {
         })
       )
 
-      // premature subcription: We will now subscribe, eventhough the node is not yet mounted
-      // but we try to get the initial values from the observables synchronously and that
-      // is only possible if we subscribe before rendering.  Succeeding supscriptions will then
-      // soley be handle by mount/unmount hooks.  And every node within this method is going to
-      // be mounted one way or another and this method is guarded by an effect in the public api.
-      start()
-
       // create initial proxy, we want to apply the initial state of the
       // receivers to the node
       val separatedModifiers = SeparatedModifiers.from(nativeModifiers.modifiers, prependModifiers = prependModifiers)
@@ -207,13 +200,12 @@ private[outwatch] object SnabbdomOps {
       proxy
     } else {
       // simpler version with only subscriptions, no streams.
-      val sink = SinkObserver.empty
       var isActive = false
 
       def start(): Unit = if (!isActive) {
         isActive = true
         nativeModifiers.subscribables.foreach { subscribable =>
-          subscribable.subscribe(sink)
+          subscribable.subscribe()
         }
       }
 
@@ -236,9 +228,6 @@ private[outwatch] object SnabbdomOps {
           stop()
         })
       )
-
-      // premature subcription
-      start()
 
       // create the proxy from the modifiers
       val separatedModifiers = SeparatedModifiers.from(nativeModifiers.modifiers, prependModifiers = prependModifiers)

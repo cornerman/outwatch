@@ -208,38 +208,36 @@ private[outwatch] class NativeModifiers(
   val hasStream: Boolean
 )
 private[outwatch] trait Subscribable {
-  def subscribe(sink: SinkObserver[Unit]): Unit
+  def subscribe(): Unit
   def unsubscribe(): Unit
 }
 private[outwatch] class SubscribableSubscription(
-  newSubscription: SinkObserver[Unit] => Subscription
+  newSubscription: () => Subscription
 ) extends Subscribable {
-  private var subscription: Subscription = null
+  private var isSubscribed = true
+  private var subscription: Subscription = newSubscription()
 
-  def subscribe(sink: SinkObserver[Unit]): Unit = if (subscription == null) {
-    // this is a weird function, it ignores a subsription, eventhough it does not know
-    // wether this specific observer is already subscribed. In this case it is okay,
-    // because this is an internal class that only ever is called with the same observer
-    val variable = Subscription.variable()
-    subscription = variable
-    variable() = newSubscription(sink)
+  def subscribe(): Unit = if (!isSubscribed) {
+    isSubscribed = true
+    subscription = newSubscription()
   }
 
-  def unsubscribe(): Unit = if (subscription != null) {
+  def unsubscribe(): Unit = if (isSubscribed) {
     subscription.cancel()
     subscription = null
+    isSubscribed = false
   }
 }
 private[outwatch] class SubscribableComposition(
   subscribables: js.Array[Subscribable]
 ) extends Subscribable {
-  def subscribe(sink: SinkObserver[Unit]): Unit = subscribables.foreach(_.subscribe(sink))
+  def subscribe(): Unit = subscribables.foreach(_.subscribe())
 
   def unsubscribe(): Unit = subscribables.foreach(_.unsubscribe())
 }
 
 private[outwatch] object NativeModifiers {
-  def from(appendModifiers: js.Array[_ <: VDomModifier]): NativeModifiers = {
+  def from(appendModifiers: js.Array[_ <: VDomModifier], patchSink: SinkObserver[Unit]): NativeModifiers = {
     val allModifiers = new js.Array[StaticVDomModifier]()
     val allSubscribables = new js.Array[Subscribable]()
     var hasStream = false
@@ -258,7 +256,7 @@ private[outwatch] object NativeModifiers {
         val streamedSubscribables = new js.Array[Subscribable]()
 
         subscribables.push(new SubscribableSubscription(
-          sink => mod.subscription(SinkObserver.contramap[SinkObserver, Unit, VDomModifier](sink) { modifier =>
+          () => mod.subscription(SinkObserver.contramap[SinkObserver, Unit, VDomModifier](patchSink) { modifier =>
             streamedSubscribables.foreach(_.unsubscribe())
             streamedSubscribables.clear()
             streamedModifiers.clear()
@@ -279,7 +277,7 @@ private[outwatch] object NativeModifiers {
         case child: VNode  => appendStatic(new VNodeProxyNode(SnabbdomOps.toSnabbdom(child)))
         case child: StringVNode  => appendStatic(new VNodeProxyNode(VNodeProxy.fromString(child.text)))
         case m: StreamModifier => appendStream(m)
-        case s: SubscriptionModifier => subscribables.push(new SubscribableSubscription(_ => s.subscription())); ()
+        case s: SubscriptionModifier => subscribables.push(new SubscribableSubscription(() => s.subscription())); ()
         case m: SyncEffectModifier => append(subscribables, modifiers, m.unsafeRun(), inStream)
       }
     }
