@@ -16,11 +16,6 @@ trait SourceStream[+A] {
   def subscribe[G[_]: Sink](sink: G[_ >: A]): Subscription
 }
 object SourceStream {
-  // Only one execution context in javascript that is a queued execution
-  // context using the javascript event loop. We skip the implicit execution
-  // context and just fire on the global one. As it is most likely what you
-  // want to do in this API.
-  import ExecutionContext.Implicits.global
 
   object Empty extends SourceStream[Nothing] {
     @inline def subscribe[G[_]: Sink](sink: G[_ >: Nothing]): Subscription = Subscription.empty
@@ -88,7 +83,7 @@ object SourceStream {
     }
   }
 
-  def fromFuture[A](future: Future[A]): SourceStream[A] = fromAsync(IO.fromFuture(IO.pure(future))(IO.contextShift(global)))
+  def fromFuture[A](future: Future[A])(implicit ec: ExecutionContext): SourceStream[A] = fromAsync(IO.fromFuture(IO.pure(future))(IO.contextShift(ec)))
 
   def failed[S[_]: Source, A](source: S[A]): SourceStream[Throwable] = new SourceStream[Throwable] {
     def subscribe[G[_]: Sink](sink: G[_ >: Throwable]): Subscription =
@@ -124,7 +119,7 @@ object SourceStream {
 
   def concatSync[F[_] : RunSyncEffect, T](effects: F[T]*): SourceStream[T] = fromIterable(effects).mapSync(identity)
 
-  def concatFuture[T](values: Future[T]*): SourceStream[T] = fromIterable(values).concatMapFuture(identity)
+  def concatFuture[T](values: Future[T]*)(implicit ec: ExecutionContext): SourceStream[T] = fromIterable(values).concatMapFuture(identity)
 
   def concatAsync[F[_] : Effect, T, S[_] : Source](effect: F[T], source: S[T]): SourceStream[T] = new SourceStream[T] {
     def subscribe[G[_]: Sink](sink: G[_ >: T]): Subscription = {
@@ -149,7 +144,7 @@ object SourceStream {
     }
   }
 
-  def concatFuture[T, S[_] : Source](value: Future[T], source: S[T]): SourceStream[T] = concatAsync(IO.fromFuture(IO.pure(value))(IO.contextShift(global)), source)
+  def concatFuture[T, S[_] : Source](value: Future[T], source: S[T])(implicit ec: ExecutionContext): SourceStream[T] = concatAsync(IO.fromFuture(IO.pure(value))(IO.contextShift(ec)), source)
 
   def concatSync[F[_] : RunSyncEffect, T, S[_] : Source](effect: F[T], source: S[T]): SourceStream[T] = new SourceStream[T] {
     def subscribe[G[_]: Sink](sink: G[_ >: T]): Subscription = {
@@ -300,7 +295,7 @@ object SourceStream {
     }
   }
 
-  @inline def concatMapFuture[S[_]: Source, A, B](source: S[A])(f: A => Future[B]): SourceStream[B] = concatMapAsync(source)(v => IO.fromFuture(IO.pure(f(v)))(IO.contextShift(global)))
+  @inline def concatMapFuture[S[_]: Source, A, B](source: S[A])(f: A => Future[B])(implicit ec: ExecutionContext): SourceStream[B] = concatMapAsync(source)(v => IO.fromFuture(IO.pure(f(v)))(IO.contextShift(ec)))
 
   @inline def mapSync[S[_]: Source, F[_]: RunSyncEffect, A, B](source: S[A])(f: A => F[B]): SourceStream[B] = map(source)(v => RunSyncEffect[F].unsafeRun(f(v)))
 
@@ -531,7 +526,7 @@ object SourceStream {
 
   @inline def prependSync[S[_]: Source, A, F[_] : RunSyncEffect](source: S[A])(value: F[A]): SourceStream[A] = concatSync[F, A, S](value, source)
   @inline def prependAsync[S[_]: Source, A, F[_] : Effect](source: S[A])(value: F[A]): SourceStream[A] = concatAsync[F, A, S](value, source)
-  @inline def prependFuture[S[_]: Source, A](source: S[A])(value: Future[A]): SourceStream[A] = concatFuture[A, S](value, source)
+  @inline def prependFuture[S[_]: Source, A](source: S[A])(value: Future[A])(implicit ec: ExecutionContext): SourceStream[A] = concatFuture[A, S](value, source)
 
   def prepend[F[_]: Source, A](source: F[A])(value: A): SourceStream[A] = new SourceStream[A] {
     def subscribe[G[_]: Sink](sink: G[_ >: A]): Subscription = {
@@ -695,7 +690,7 @@ object SourceStream {
     @inline def delayMillis(millis: Int): SourceStream[A] = SourceStream.delayMillis(source)(millis)
     @inline def distinctOnEquals: SourceStream[A] = SourceStream.distinctOnEquals(source)
     @inline def distinct(implicit eq: Eq[A]): SourceStream[A] = SourceStream.distinct(source)
-    @inline def concatMapFuture[B](f: A => Future[B]): SourceStream[B] = SourceStream.concatMapFuture(source)(f)
+    @inline def concatMapFuture[B](f: A => Future[B])(implicit ec: ExecutionContext): SourceStream[B] = SourceStream.concatMapFuture(source)(f)
     @inline def concatMapAsync[G[_]: Effect, B](f: A => G[B]): SourceStream[B] = SourceStream.concatMapAsync(source)(f)
     @inline def mapSync[G[_]: RunSyncEffect, B](f: A => G[B]): SourceStream[B] = SourceStream.mapSync(source)(f)
     @inline def map[B](f: A => B): SourceStream[B] = SourceStream.map(source)(f)
@@ -717,7 +712,7 @@ object SourceStream {
     @inline def prepend(value: A): SourceStream[A] = SourceStream.prepend(source)(value)
     @inline def prependSync[F[_] : RunSyncEffect](value: F[A]): SourceStream[A] = SourceStream.prependSync(source)(value)
     @inline def prependAsync[F[_] : Effect](value: F[A]): SourceStream[A] = SourceStream.prependAsync(source)(value)
-    @inline def prependFuture(value: Future[A]): SourceStream[A] = SourceStream.prependFuture(source)(value)
+    @inline def prependFuture(value: Future[A])(implicit ec: ExecutionContext): SourceStream[A] = SourceStream.prependFuture(source)(value)
     @inline def startWith(values: Iterable[A]): SourceStream[A] = SourceStream.startWith(source)(values)
     @inline def head: SourceStream[A] = SourceStream.head(source)
     @inline def take(num: Int): SourceStream[A] = SourceStream.take(source)(num)

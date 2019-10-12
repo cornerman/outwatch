@@ -7,7 +7,7 @@ import outwatch.dom._
 import outwatch.reactive._
 import outwatch.effect._
 
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
 import scala.concurrent.duration.FiniteDuration
 
 // The EmitterBuilder[O, R] allows you to build an R that produces values of type O.
@@ -111,7 +111,7 @@ trait EmitterBuilderExecution[+O, +R, +Exec <: EmitterBuilder.Execution] {
   def sampleMillis(millis: Int): EmitterBuilder[O, R] =
     transformWithExec[O](source => SourceStream.sampleMillis(source)(millis))
 
-  def concatMapFuture[T](f: O => Future[T]): EmitterBuilder[T, R] =
+  def concatMapFuture[T](f: O => Future[T])(implicit ec: ExecutionContext): EmitterBuilder[T, R] =
     transformWithExec[T](source => SourceStream.concatMapFuture(source)(f))
 
   def concatMapAsync[G[_]: Effect, T](f: O => G[T]): EmitterBuilder[T, R] =
