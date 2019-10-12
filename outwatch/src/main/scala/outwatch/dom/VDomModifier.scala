@@ -3,6 +3,7 @@ package outwatch.dom
 import cats.Monoid
 import org.scalajs.dom._
 import outwatch.dom.helpers.NativeHelpers._
+import outwatch.effect.RunAsyncResult
 import outwatch.reactive.{SinkObserver, Subscription, SubscriptionOwner}
 import snabbdom.{DataObject, VNodeProxy}
 
@@ -102,6 +103,7 @@ object EmptyModifier extends VDomModifier
 final class CompositeModifier(val modifiers: Iterable[VDomModifier]) extends VDomModifier
 final class StreamModifier(val subscription: SinkObserver[VDomModifier] => Subscription) extends VDomModifier
 final class SubscriptionModifier(val subscription: () => Subscription) extends VDomModifier
+final class EffectModifier(val unsafeRun: () => RunAsyncResult[VDomModifier]) extends VDomModifier
 final class SyncEffectModifier(val unsafeRun: () => VDomModifier) extends VDomModifier
 final class StringVNode(val text: String) extends VDomModifier
 

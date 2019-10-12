@@ -3,6 +3,7 @@ package outwatch.dom.interpreter
 import org.scalajs.dom
 import outwatch.dom._
 import outwatch.dom.helpers.NativeHelpers._
+import outwatch.effect._
 import outwatch.reactive._
 import snabbdom.{DataObject, Hooks, VNodeProxy}
 
@@ -269,6 +270,33 @@ private[outwatch] object NativeModifiers {
         ()
       }
 
+      @inline def appendEffect(effect: EffectModifier): Unit = {
+        effect.unsafeRun() match {
+          case sync: RunAsyncResult.Sync[VDomModifier] => sync.value match {
+            case Right(modifier) => append(subscribables, modifiers, modifier, inStream)
+            case Left(error) => patchSink.onError(error)
+          }
+          case async: RunAsyncResult.Async[VDomModifier] =>
+            hasStream = true
+
+            val streamedModifiers = new js.Array[StaticVDomModifier]()
+            val streamedSubscribables = new js.Array[Subscribable]()
+
+            val subscription = async.singleSubscribe {
+              case Right(modifier) =>
+                append(streamedSubscribables, streamedModifiers, modifier, inStream = true)
+                patchSink.onNext(())
+              case Left(error) =>
+                patchSink.onError(error)
+            }
+
+            subscribables.push(new SubscribableSubscription(() => subscription))
+            modifiers.push(new StaticCompositeModifier(streamedModifiers))
+            subscribables.push(new SubscribableComposition(streamedSubscribables))
+            ()
+        }
+      }
+
       modifier match {
         case EmptyModifier => ()
         case c: CompositeModifier => c.modifiers.foreach(append(subscribables, modifiers, _, inStream))
@@ -279,6 +307,7 @@ private[outwatch] object NativeModifiers {
         case m: StreamModifier => appendStream(m)
         case s: SubscriptionModifier => subscribables.push(new SubscribableSubscription(() => s.subscription())); ()
         case m: SyncEffectModifier => append(subscribables, modifiers, m.unsafeRun(), inStream)
+        case m: EffectModifier => appendEffect(m)
       }
     }
 
