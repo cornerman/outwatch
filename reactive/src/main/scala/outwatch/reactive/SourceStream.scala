@@ -6,7 +6,6 @@ import cats.{ MonoidK, Functor, FunctorFilter, Eq }
 import cats.effect.{ Effect, IO }
 
 import scala.scalajs.js
-import scala.util.{ Success, Failure, Try }
 import scala.util.control.NonFatal
 import scala.concurrent.{ ExecutionContext, Future }
 import scala.concurrent.duration.FiniteDuration
@@ -56,11 +55,11 @@ object SourceStream {
     def subscribe[G[_]: Sink](sink: G[_ >: A]): Subscription = produce(LiftSink[F].lift(sink))
   }
 
-  def fromTry[A](value: Try[A]): SourceStream[A] = new SourceStream[A] {
+  def fromEither[A](value: Either[Throwable, A]): SourceStream[A] = new SourceStream[A] {
     def subscribe[G[_]: Sink](sink: G[_ >: A]): Subscription = {
       value match {
-        case Success(a) => Sink[G].onNext(sink)(a)
-        case Failure(error) => Sink[G].onError(sink)(error)
+        case Right(a) => Sink[G].onNext(sink)(a)
+        case Left(error) => Sink[G].onError(sink)(error)
       }
       Subscription.empty
     }
@@ -222,13 +221,8 @@ object SourceStream {
     def subscribe[G[_]: Sink](sink: G[_ >: B]): Subscription = Source[F].subscribe(source)(SinkObserver.contrascan[G, B, A](sink)(seed)(f))
   }
 
-  def mapTry[F[_]: Source, A, B](source: F[A])(f: A => Try[B]): SourceStream[B] = new SourceStream[B] {
-    def subscribe[G[_]: Sink](sink: G[_ >: B]): Subscription = Source[F].subscribe(source)(SinkObserver.createUnhandled[A](
-      value => f(value) match {
-        case Success(b) => Sink[G].onNext(sink)(b)
-        case Failure(error) => Sink[G].onError(sink)(error)
-      }
-    ))
+  def mapEither[F[_]: Source, A, B](source: F[A])(f: A => Either[Throwable, B]): SourceStream[B] = new SourceStream[B] {
+    def subscribe[G[_]: Sink](sink: G[_ >: B]): Subscription = Source[F].subscribe(source)(SinkObserver.contramapEither(sink)(f))
   }
 
   def recover[F[_]: Source, A](source: F[A])(f: PartialFunction[Throwable, A]): SourceStream[A] = recoverOption(source)(f andThen (Some(_)))
@@ -705,7 +699,7 @@ object SourceStream {
     @inline def concatMapAsync[G[_]: Effect, B](f: A => G[B]): SourceStream[B] = SourceStream.concatMapAsync(source)(f)
     @inline def mapSync[G[_]: RunSyncEffect, B](f: A => G[B]): SourceStream[B] = SourceStream.mapSync(source)(f)
     @inline def map[B](f: A => B): SourceStream[B] = SourceStream.map(source)(f)
-    @inline def mapTry[B](f: A => Try[B]): SourceStream[B] = SourceStream.mapTry(source)(f)
+    @inline def mapEither[B](f: A => Either[Throwable, B]): SourceStream[B] = SourceStream.mapEither(source)(f)
     @inline def mapFilter[B](f: A => Option[B]): SourceStream[B] = SourceStream.mapFilter(source)(f)
     @inline def collect[B](f: PartialFunction[A, B]): SourceStream[B] = SourceStream.collect(source)(f)
     @inline def filter(f: A => Boolean): SourceStream[A] = SourceStream.filter(source)(f)

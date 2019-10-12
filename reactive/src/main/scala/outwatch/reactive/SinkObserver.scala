@@ -64,6 +64,14 @@ object SinkObserver {
     def onError(error: Throwable): Unit = Sink[G].onError(sink)(error)
   }
 
+  def contramapEither[G[_] : Sink, A, B](sink: G[_ >: A])(f: B => Either[Throwable, A]): SinkObserver[B] = new SinkObserver[B] {
+    def onNext(value: B): Unit = recovered(f(value) match {
+      case Right(value) => Sink[G].onNext(sink)(value)
+      case Left(error) => Sink[G].onError(sink)(error)
+    }, onError)
+    def onError(error: Throwable): Unit = Sink[G].onError(sink)(error)
+  }
+
   def contramapFilter[G[_] : Sink, A, B](sink: G[_ >: A])(f: B => Option[A]): SinkObserver[B] = new SinkObserver[B] {
     def onNext(value: B): Unit = recovered(f(value).foreach(Sink[G].onNext(sink)), onError)
     def onError(error: Throwable): Unit = Sink[G].onError(sink)(error)
@@ -123,6 +131,7 @@ object SinkObserver {
   @inline implicit class Operations[A](val sink: SinkObserver[A]) extends AnyVal {
     @inline def liftSink[G[_] : LiftSink]: G[A] = LiftSink[G].lift(sink)
     @inline def contramap[B](f: B => A): SinkObserver[B] = SinkObserver.contramap(sink)(f)
+    @inline def contramapEither[B](f: B => Either[Throwable,A]): SinkObserver[B] = SinkObserver.contramapEither(sink)(f)
     @inline def contramapFilter[B](f: B => Option[A]): SinkObserver[B] = SinkObserver.contramapFilter(sink)(f)
     @inline def contracollect[B](f: PartialFunction[B, A]): SinkObserver[B] = SinkObserver.contracollect(sink)(f)
     @inline def contrafilter(f: A => Boolean): SinkObserver[A] = SinkObserver.contrafilter(sink)(f)
