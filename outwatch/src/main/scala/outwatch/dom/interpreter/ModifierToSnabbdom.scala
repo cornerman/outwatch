@@ -2,7 +2,6 @@ package outwatch.dom.interpreter
 
 import org.scalajs.dom
 import outwatch.dom._
-import outwatch.dom.helpers.MutableNestedArray
 import outwatch.dom.helpers.NativeHelpers._
 import outwatch.reactive._
 import snabbdom.{DataObject, Hooks, VNodeProxy}
@@ -205,13 +204,17 @@ private[outwatch] object SeparatedModifiers {
 
 private[outwatch] class NativeModifiers(
   val modifiers: js.Array[StaticVDomModifier],
-  val subscribables: MutableNestedArray[Subscribable],
+  val subscribables: js.Array[Subscribable],
   val hasStream: Boolean
 )
-private[outwatch] class Subscribable(
+private[outwatch] trait Subscribable {
+  def subscribe(sink: SinkObserver[Unit]): Unit
+  def unsubscribe(): Unit
+}
+private[outwatch] class SubscribableSubscription(
   newSubscription: SinkObserver[Unit] => Subscription
-) {
-  var subscription: Subscription = null
+) extends Subscribable {
+  private var subscription: Subscription = null
 
   def subscribe(sink: SinkObserver[Unit]): Unit = if (subscription == null) {
     // this is a weird function, it ignores a subsription, eventhough it does not know
@@ -227,14 +230,21 @@ private[outwatch] class Subscribable(
     subscription = null
   }
 }
+private[outwatch] class SubscribableComposition(
+  subscribables: js.Array[Subscribable]
+) extends Subscribable {
+  def subscribe(sink: SinkObserver[Unit]): Unit = subscribables.foreach(_.subscribe(sink))
+
+  def unsubscribe(): Unit = subscribables.foreach(_.unsubscribe())
+}
 
 private[outwatch] object NativeModifiers {
   def from(appendModifiers: js.Array[_ <: VDomModifier]): NativeModifiers = {
     val allModifiers = new js.Array[StaticVDomModifier]()
-    val allSubscribables = new MutableNestedArray[Subscribable]()
+    val allSubscribables = new js.Array[Subscribable]()
     var hasStream = false
 
-    def append(subscribables: MutableNestedArray[Subscribable], modifiers: js.Array[StaticVDomModifier], modifier: VDomModifier, inStream: Boolean): Unit = {
+    def append(subscribables: js.Array[Subscribable], modifiers: js.Array[StaticVDomModifier], modifier: VDomModifier, inStream: Boolean): Unit = {
 
       @inline def appendStatic(mod: StaticVDomModifier): Unit = {
         modifiers.push(mod)
@@ -245,9 +255,9 @@ private[outwatch] object NativeModifiers {
         hasStream = true
 
         val streamedModifiers = new js.Array[StaticVDomModifier]()
-        val streamedSubscribables = new MutableNestedArray[Subscribable]()
+        val streamedSubscribables = new js.Array[Subscribable]()
 
-        subscribables.push(new Subscribable(
+        subscribables.push(new SubscribableSubscription(
           sink => mod.subscription(SinkObserver.contramap[SinkObserver, Unit, VDomModifier](sink) { modifier =>
             streamedSubscribables.foreach(_.unsubscribe())
             streamedSubscribables.clear()
@@ -257,7 +267,7 @@ private[outwatch] object NativeModifiers {
         ))
 
         modifiers.push(new StaticCompositeModifier(streamedModifiers))
-        subscribables.push(streamedSubscribables)
+        subscribables.push(new SubscribableComposition(streamedSubscribables))
         ()
       }
 
@@ -269,7 +279,7 @@ private[outwatch] object NativeModifiers {
         case child: VNode  => appendStatic(new VNodeProxyNode(SnabbdomOps.toSnabbdom(child)))
         case child: StringVNode  => appendStatic(new VNodeProxyNode(VNodeProxy.fromString(child.text)))
         case m: StreamModifier => appendStream(m)
-        case s: SubscriptionModifier => subscribables.push(new Subscribable(_ => s.subscription()))
+        case s: SubscriptionModifier => subscribables.push(new SubscribableSubscription(_ => s.subscription())); ()
         case m: SyncEffectModifier => append(subscribables, modifiers, m.unsafeRun(), inStream)
       }
     }
