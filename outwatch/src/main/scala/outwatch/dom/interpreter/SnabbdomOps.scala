@@ -101,14 +101,13 @@ private[outwatch] object SnabbdomOps {
 
     if (nativeModifiers.subscribables.isEmpty) {
       // if no dynamic/subscribable content, then just create a simple proxy
-      createProxy(SeparatedModifiers.from(nativeModifiers.modifiers), node.nodeType, vNodeId, vNodeNS)
-    } else if (nativeModifiers.hasStream) {
+      createProxy(nativeModifiers.separatedModifiers, node.nodeType, vNodeId, vNodeNS)
+    } else if (nativeModifiers.separatedEndIndex != -1) {
       // if there is streamable content, we update the initial proxy with
       // in subscribe and unsubscribe callbacks. We subscribe and unsubscribe
       // based in dom events.
 
       var proxy: VNodeProxy = null
-      var prependModifiers: js.UndefOr[js.Array[StaticVDomModifier]] = js.undefined
       var lastTimeout: js.UndefOr[Int] = js.undefined
       var isActive: Boolean = false
 
@@ -121,7 +120,8 @@ private[outwatch] object SnabbdomOps {
         patchIsNeeded = false
 
         // update the current proxy with the new state
-        val separatedModifiers = SeparatedModifiers.from(nativeModifiers.modifiers, prependModifiers = prependModifiers)
+        val separatedModifiers = SeparatedModifiers.from(nativeModifiers.modifiers)
+        addLifetimeHooks(separatedModifiers)
         val newProxy = createProxy(separatedModifiers, node.nodeType, vNodeId, vNodeNS)
         newProxy._update = proxy._update
         newProxy._args = proxy._args
@@ -167,14 +167,13 @@ private[outwatch] object SnabbdomOps {
         nativeModifiers.subscribables.foreach(_.unsubscribe())
       }
 
-      // hooks for subscribing and unsubscribing the streamable content
-      prependModifiers = js.Array[StaticVDomModifier](
-        new InsertHook({ p =>
+      def addLifetimeHooks(separatedModifiers: SeparatedModifiers): Unit = {
+        separatedModifiers.insertHook = separatedModifiers.prependHooksSingle[VNodeProxy](separatedModifiers.insertHook, { p =>
           VNodeProxy.copyInto(p, proxy)
           isActive = true
           start()
-        }),
-        new PostPatchHook({ (o, p) =>
+        })
+        separatedModifiers.postPatchHook = separatedModifiers.prependHooksPair[VNodeProxy](separatedModifiers.postPatchHook, { (o, p) =>
           VNodeProxy.copyInto(p, proxy)
           proxy._update.foreach(_(proxy))
           if (!NativeModifiers.equalsVNodeIds(o._id, p._id)) {
@@ -185,17 +184,25 @@ private[outwatch] object SnabbdomOps {
           } else {
             stop()
           }
-        }),
-        new DomUnmountHook({ _ =>
+        })
+        separatedModifiers.oldPostPatchHook = separatedModifiers.prependHooksPair[VNodeProxy](separatedModifiers.oldPostPatchHook, { (o,p) =>
+          if (!NativeModifiers.equalsVNodeIds(o._id, p._id)) {
+            isActive = false
+            stop()
+          }
+        })
+        separatedModifiers.destroyHook = separatedModifiers.prependHooksSingle[VNodeProxy](separatedModifiers.destroyHook, { _ =>
           isActive = false
           stop()
         })
-      )
+      }
+
+      addLifetimeHooks(nativeModifiers.separatedModifiers)
+      nativeModifiers.separatedModifiers.appendAllFrom(nativeModifiers.modifiers, nativeModifiers.separatedEndIndex)
 
       // create initial proxy, we want to apply the initial state of the
       // receivers to the node
-      val separatedModifiers = SeparatedModifiers.from(nativeModifiers.modifiers, prependModifiers = prependModifiers)
-      proxy = createProxy(separatedModifiers, node.nodeType, vNodeId, vNodeNS)
+      proxy = createProxy(nativeModifiers.separatedModifiers, node.nodeType, vNodeId, vNodeNS)
 
       proxy
     } else {
@@ -214,24 +221,30 @@ private[outwatch] object SnabbdomOps {
         nativeModifiers.subscribables.foreach(_.unsubscribe())
       }
 
-      // hooks for subscribing and unsubscribing the streamable content
-      val prependModifiers = js.Array[StaticVDomModifier](
-        new InsertHook({ _ =>
+      // hooks for subscribing and unsubscribing the sub subscribables
+      def addLifetimeHooks(separatedModifiers: SeparatedModifiers): Unit = {
+        separatedModifiers.insertHook = separatedModifiers.prependHooksSingle[VNodeProxy](separatedModifiers.insertHook, { _ =>
           start()
-        }),
-        new PostPatchHook({ (o, p) =>
+        })
+        separatedModifiers.postPatchHook = separatedModifiers.prependHooksPair[VNodeProxy](separatedModifiers.postPatchHook, { (o, p) =>
           if (!NativeModifiers.equalsVNodeIds(o._id, p._id)) {
             start()
           }
-        }),
-        new DomUnmountHook({ _ =>
+        })
+        separatedModifiers.oldPostPatchHook = separatedModifiers.prependHooksPair[VNodeProxy](separatedModifiers.oldPostPatchHook, { (o,p) =>
+          if (!NativeModifiers.equalsVNodeIds(o._id, p._id)) {
+            stop()
+          }
+        })
+        separatedModifiers.destroyHook = separatedModifiers.prependHooksSingle[VNodeProxy](separatedModifiers.destroyHook, { _ =>
           stop()
         })
-      )
+      }
+
+      addLifetimeHooks(nativeModifiers.separatedModifiers)
 
       // create the proxy from the modifiers
-      val separatedModifiers = SeparatedModifiers.from(nativeModifiers.modifiers, prependModifiers = prependModifiers)
-      createProxy(separatedModifiers, node.nodeType, vNodeId, vNodeNS)
+      createProxy(nativeModifiers.separatedModifiers, node.nodeType, vNodeId, vNodeNS)
     }
   }
 }
