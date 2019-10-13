@@ -2,6 +2,7 @@ package outwatch.dom.interpreter
 
 import org.scalajs.dom
 import outwatch.dom._
+import outwatch.dom.helpers.OutwatchTracing
 import outwatch.dom.helpers.NativeHelpers._
 import outwatch.effect._
 import outwatch.reactive._
@@ -249,7 +250,7 @@ private[outwatch] class SubscribableComposition(
 }
 
 private[outwatch] object NativeModifiers {
-  def from(appendModifiers: js.Array[_ <: VDomModifier], patchSink: SinkObserver[Unit]): NativeModifiers = {
+  def from(appendModifiers: js.Array[_ <: VDomModifier], invokePatch: () => Unit): NativeModifiers = {
     val allModifiers = new js.Array[StaticVDomModifier]()
     val allSubscribables = new js.Array[Subscribable]()
     var hasStreamIdx = -1
@@ -270,12 +271,13 @@ private[outwatch] object NativeModifiers {
         val streamedModifiers = new js.Array[StaticVDomModifier]()
         val streamedSubscribables = new js.Array[Subscribable]()
 
-        val sink = SinkObserver.contramap[SinkObserver, Unit, VDomModifier](patchSink) { modifier =>
+        val sink = SinkObserver.create[VDomModifier]({ modifier =>
           streamedSubscribables.foreach(_.unsubscribe())
           streamedSubscribables.clear()
           streamedModifiers.clear()
           append(streamedSubscribables, streamedModifiers, modifier, inStream = true)
-        }
+          invokePatch()
+        })
 
         subscribables.push(new SubscribableSubscription(() => mod.subscription(sink)))
         modifiers.push(new StaticCompositeModifier(streamedModifiers))
@@ -287,7 +289,7 @@ private[outwatch] object NativeModifiers {
         effect.unsafeRun() match {
           case sync: RunAsyncResult.Sync[VDomModifier] => sync.value match {
             case Right(modifier) => append(subscribables, modifiers, modifier, inStream = inStream)
-            case Left(error) => patchSink.onError(error)
+            case Left(error) => OutwatchTracing.errorSubject.onNext(error)
           }
           case async: RunAsyncResult.Async[VDomModifier] =>
             if (hasStreamIdx == -1) hasStreamIdx = allModifiers.length
@@ -298,9 +300,8 @@ private[outwatch] object NativeModifiers {
             val subscription = async.singleSubscribe {
               case Right(modifier) =>
                 append(streamedSubscribables, streamedModifiers, modifier, inStream = true)
-                patchSink.onNext(())
-              case Left(error) =>
-                patchSink.onError(error)
+                invokePatch()
+              case Left(error) => OutwatchTracing.errorSubject.onNext(error)
             }
 
             subscribables.push(new SubscribableSubscription(() => subscription))

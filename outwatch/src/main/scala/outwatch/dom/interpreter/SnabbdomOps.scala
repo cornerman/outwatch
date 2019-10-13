@@ -2,7 +2,6 @@ package outwatch.dom.interpreter
 
 import outwatch.dom._
 import outwatch.dom.helpers._
-import outwatch.reactive._
 import snabbdom._
 
 import scala.scalajs.js
@@ -95,9 +94,8 @@ private[outwatch] object SnabbdomOps {
     val vNodeId: Int = newNodeId()
 
     var patchFun: () => Unit = () => ()
-    val patchSink = SinkObserver.create[Unit](_ => patchFun(), OutwatchTracing.errorSubject.onNext)
 
-    val nativeModifiers = NativeModifiers.from(node.modifiers, patchSink)
+    val nativeModifiers = NativeModifiers.from(node.modifiers, () => patchFun())
 
     if (nativeModifiers.subscribables.isEmpty) {
       // if no dynamic/subscribable content, then just create a simple proxy
@@ -144,16 +142,15 @@ private[outwatch] object SnabbdomOps {
         lastTimeout = setImmediateRef(() => doPatch())
       }
 
-      def invokeDoPatch(async: Boolean): Unit = if (isActive) {
+      patchFun = () => if (isActive) {
         if (patchIsRunning) {
           patchIsNeeded = true
         } else {
-          if (async) asyncDoPatch()
+          if (asyncPatchEnabled) asyncDoPatch()
           else doPatch()
         }
       }
 
-      patchFun = () => invokeDoPatch(async = asyncPatchEnabled)
 
       def start(): Unit = {
         resetTimeout()

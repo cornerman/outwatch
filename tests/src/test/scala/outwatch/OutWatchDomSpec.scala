@@ -94,7 +94,7 @@ class OutWatchDomSpec extends JSDomAsyncSpec {
     )
 
 
-    val streamable = NativeModifiers.from(modifiers, SinkObserver.empty)
+    val streamable = NativeModifiers.from(modifiers, () => ())
     val seps = SeparatedModifiers.from(streamable.modifiers)
     import seps._
 
@@ -116,7 +116,7 @@ class OutWatchDomSpec extends JSDomAsyncSpec {
       new StringVNode("text"),
       div()
     )
-    val streamable = NativeModifiers.from(modifiers, SinkObserver.empty)
+    val streamable = NativeModifiers.from(modifiers, () => ())
     val seps = SeparatedModifiers.from(streamable.modifiers)
     import seps._
 
@@ -139,7 +139,7 @@ class OutWatchDomSpec extends JSDomAsyncSpec {
       new StringVNode("text2")
     )
 
-    val streamable = NativeModifiers.from(modifiers, SinkObserver.empty)
+    val streamable = NativeModifiers.from(modifiers, () => ())
     val seps = SeparatedModifiers.from(streamable.modifiers)
     import seps._
 
@@ -167,7 +167,7 @@ class OutWatchDomSpec extends JSDomAsyncSpec {
       new StringVNode("text")
     )
 
-    val streamable = NativeModifiers.from(modifiers, SinkObserver.empty)
+    val streamable = NativeModifiers.from(modifiers, () => ())
     val seps = SeparatedModifiers.from(streamable.modifiers)
     import seps._
 
@@ -257,7 +257,7 @@ class OutWatchDomSpec extends JSDomAsyncSpec {
       div(), div()
     )
 
-    val streamable = NativeModifiers.from(mods, SinkObserver.empty)
+    val streamable = NativeModifiers.from(mods, () => ())
     val seps =  SeparatedModifiers.from(streamable.modifiers)
     import seps._
 
@@ -285,7 +285,7 @@ class OutWatchDomSpec extends JSDomAsyncSpec {
       div()(new Key(5678))
     )
 
-    val streamable = NativeModifiers.from(mods, SinkObserver.empty)
+    val streamable = NativeModifiers.from(mods, () => ())
     val seps = SeparatedModifiers.from(streamable.modifiers)
     import seps._
 
