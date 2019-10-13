@@ -2586,6 +2586,87 @@ class OutWatchDomSpec extends JSDomAsyncSpec {
     }
   }
 
+  it should "work and reuse respective elements" in {
+
+    var mountCount = List.empty[Int]
+    var preupdateCount = List.empty[Int]
+    var updateCount = List.empty[Int]
+    var unmountCount = List.empty[Int]
+    var renderFnCounter = List.empty[Int]
+
+    val children = Handler.unsafe[List[String]](Nil)
+
+    val node = div(
+      id := "strings",
+      b("before"),
+      children.map(_.zipWithIndex.map { case (myString,idx) =>
+        b.thunkStatic(myString){
+          renderFnCounter ++= List(idx)
+          VDomModifier(
+            cls := "b",
+            myString,
+            onDomMount.foreach { mountCount ++= List(idx) },
+            onDomPreUpdate.foreach { preupdateCount ++= List(idx) }),
+            onDomUpdate.foreach { updateCount ++= List(idx) },
+            onDomUnmount.foreach { unmountCount ++= List(idx) }
+          )
+        }
+      }),
+      b("after")
+    )
+
+    OutWatch.renderInto[IO]("#app", node).map { _ =>
+      val element = document.getElementById("strings")
+
+      renderFnCounter shouldBe Nil
+      mountCount shouldBe Nil
+      preupdateCount shouldBe Nil
+      updateCount shouldBe Nil
+      unmountCount shouldBe Nil
+      element.innerHTML shouldBe "<b>before</b><b>after</b>"
+
+      children.onNext(List("a", "b"))
+      renderFnCounter shouldBe List(0,1)
+      mountCount shouldBe List(0,1)
+      preupdateCount shouldBe Nil
+      updateCount shouldBe Nil
+      unmountCount shouldBe Nil
+      element.innerHTML shouldBe """<b>before</b><b class="b">a</b><b class="b">b</b><b>after</b>"""
+
+      children.onNext(List("a", "b"))
+      renderFnCounter shouldBe List(0,1)
+      mountCount shouldBe List(0,1)
+      // preupdateCount shouldBe Nil
+      // updateCount shouldBe Nil
+      unmountCount shouldBe Nil
+      element.innerHTML shouldBe """<b>before</b><b class="b">a</b><b class="b">b</b><b>after</b>"""
+
+      children.onNext(List("a", "b", "c"))
+      renderFnCounter shouldBe List(0,1,2)
+      mountCount shouldBe List(0,1,2)
+      // preupdateCount shouldBe Nil
+      // updateCount shouldBe Nil
+      unmountCount shouldBe Nil
+      element.innerHTML shouldBe """<b>before</b><b class="b">a</b><b class="b">b</b><b class="b">c</b><b>after</b>"""
+
+      children.onNext(List("0", "a", "b", "c", "d"))
+      renderFnCounter shouldBe List(0,1,2,0,4)
+      mountCount shouldBe List(0,1,2,0,4)
+      // preupdateCount shouldBe Nil
+      // updateCount shouldBe Nil
+      unmountCount shouldBe Nil
+      element.innerHTML shouldBe """<b>before</b><b class="b">0</b><b class="b">a</b><b class="b">b</b><b class="b">c</b><b class="b">d</b><b>after</b>"""
+
+      children.onNext(List("0", "a", "c", "d"))
+      renderFnCounter shouldBe List(0,1,2,0,4)
+      mountCount shouldBe List(0,1,2,0,4)
+      // preupdateCount shouldBe Nil
+      // updateCount shouldBe Nil
+      unmountCount shouldBe List(1)
+      element.innerHTML shouldBe """<b>before</b><b class="b">0</b><b class="b">a</b><b class="b">c</b><b class="b">d</b><b>after</b>"""
+    }
+  }
+
   it should "work with equals" in {
     val myString: Handler[String] = Handler.unsafe[String]
 
