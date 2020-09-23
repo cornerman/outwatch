@@ -10,10 +10,10 @@ import scala.scalajs.js.annotation.JSBracketAccess
 private[outwatch] object JSDefined {
   // provides an extractor for js.UndefOr
   // https://gitter.im/scala-js/scala-js?at=5c3e221135350772cf375515
-  def apply[A](a: A): js.UndefOr[A] = a
-  def unapply[A](a: js.UndefOr[A]): UnapplyResult[A] = new UnapplyResult(a)
+  @inline def apply[A](a: A): js.UndefOr[A] = a
+  @inline def unapply[A](a: js.UndefOr[A]): UnapplyResult[A] = new UnapplyResult(a)
 
-  final class UnapplyResult[+A](val self: js.UndefOr[A])
+  @inline final class UnapplyResult[+A](val self: js.UndefOr[A])
   extends AnyVal {
     @inline def isEmpty: Boolean = self eq js.undefined
     /** Calling `get` when `isEmpty` is true is undefined behavior. */
