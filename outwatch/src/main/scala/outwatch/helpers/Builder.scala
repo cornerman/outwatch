@@ -24,9 +24,13 @@ trait AttributeBuilder[-T, +A <: Modifier] extends Any {
 }
 
 object AttributeBuilder {
-  @inline def ofModifier[T, A <: Modifier](create: T => A): AttributeBuilder[T, A] = new AttributeBuilder[T, A] {
-    def assign(value: T): A = create(value)
+  @inline def apply[T, A <: Modifier](create: T => A): AttributeBuilder[T, A] = new AttributeBuilderApply[T, A](create)
+  @inline private class AttributeBuilderApply[T, A <: Modifier](create: T => A) extends AttributeBuilder[T, A] {
+    @inline def assign(value: T): A = create(value)
   }
+
+  @inline def ofModifier[T](create: T => Modifier): AttributeBuilder[T, Modifier] = apply(create)
+  @inline def ofNode[T](create: T => VNode): AttributeBuilder[T, VNode] = apply(create)
 }
 
 // Attr
