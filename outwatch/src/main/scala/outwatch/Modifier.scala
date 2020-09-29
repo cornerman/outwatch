@@ -42,13 +42,7 @@ trait RModifierOps {
 
   // @inline final def managedAsync[F[_] : Effect, T : CanCancel](subscription: F[T]): Modifier = subscription.map(managedFunction(() => Cancelable.fromAsyncCancelable(subscription)))
 
-  @inline final def managedFunction[T : CanCancel](subscription: () => T): Modifier = Modifier.delay {
-    var lastSub: js.UndefOr[T] = subscription()
-    Modifier(
-      DomMountHook(_ => lastSub = subscription()),
-      DomUnmountHook(_ => lastSub.foreach(CanCancel[T].cancel))
-    )
-  }
+  @inline final def managedFunction[T : CanCancel](subscription: () => T): Modifier = CancelableModifier(() => Cancelable.lift(subscription()))
 
   @inline final def resource[F[_] : RunSyncEffect, R](acquire: F[R])(use: R => Modifier)(release: R => F[Unit]): Modifier = resourceFunction(() => RunSyncEffect[F].unsafeRun(acquire))(use)(r => RunSyncEffect[F].unsafeRun(release(r)))
 
@@ -136,7 +130,7 @@ object Modifier extends RModifierOps {
     RModifier(modifier, modifier2, modifier3, modifier4, modifier5, modifier6)
 
   @inline def apply(modifier: Modifier, modifier2: Modifier, modifier3: Modifier, modifier4: Modifier, modifier5: Modifier, modifier6: Modifier, modifier7: Modifier, modifiers: Modifier*): Modifier =
-    RModifier(modifier, modifier2, modifier3, modifier4, modifier5, modifier6, modifier7, modifiers)
+    RModifier(modifier, modifier2, modifier3, modifier4, modifier5, modifier6, modifier7, modifiers: _*)
 
   @inline def composite(modifiers: Iterable[Modifier]): Modifier = RModifier.composite(modifiers)
 

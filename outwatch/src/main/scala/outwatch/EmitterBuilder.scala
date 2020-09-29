@@ -201,7 +201,7 @@ object REmitterBuilderExec {
   @inline implicit class HandlerIntegration[Env, O, Exec <: Execution](val builder: REmitterBuilderExec[Env, O, RModifier[Env], Exec]) extends AnyVal {
     @inline def handled(f: Observable[O] => RModifier[Env]): SyncIO[RModifier[Env]] = handledF[SyncIO](f)
 
-    @inline def handledF[F[_] : SyncCats](f: Observable[O] => RModifier[Env]): F[RModifier[Env]] = ??? //handledWithF[F]((r, o) => RModifier[Env](r, o))
+    @inline def handledF[F[_] : SyncCats](f: Observable[O] => RModifier[Env]): F[RModifier[Env]] = handledWithF[F]((r, o) => RModifier[Env](r, f(o)))
 
     @inline def handledWith(f: (RModifier[Env], Observable[O]) => RModifier[Env]): SyncIO[RModifier[Env]] = handledWithF[SyncIO](f)
 
