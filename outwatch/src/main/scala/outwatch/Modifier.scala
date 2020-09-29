@@ -2,8 +2,9 @@ package outwatch
 
 import cats._
 import cats.implicits._
+import cats.effect.Effect
 
-import outwatch.helpers.ModifierBooleanOps
+import outwatch.helpers.{ModifierBooleanOps, BasicAttrBuilder, PropBuilder, BasicStyleBuilder}
 import outwatch.helpers.NativeHelpers._
 
 import colibri._
@@ -26,28 +27,46 @@ sealed trait RModifier[-Env] {
 }
 
 trait RModifierOps {
-  @inline def empty: RModifier[Any] = EmptyModifier
+  @inline final def empty: Modifier = EmptyModifier
 
-  @inline def apply(): RModifier[Any] = empty
+  @inline final def apply(): Modifier = empty
 
-  @inline def ifTrue(condition: Boolean): ModifierBooleanOps = new ModifierBooleanOps(condition)
-  @inline def ifNot(condition: Boolean): ModifierBooleanOps = new ModifierBooleanOps(!condition)
+  @inline final def ifTrue(condition: Boolean): ModifierBooleanOps = new ModifierBooleanOps(condition)
+  @inline final def ifNot(condition: Boolean): ModifierBooleanOps = new ModifierBooleanOps(!condition)
 
-  @inline def managed[F[_] : RunSyncEffect, T : CanCancel](subscription: F[T]): Modifier = managedFunction(() => RunSyncEffect[F].unsafeRun(subscription))
+  @inline final def attr[T](key: String, convert: T => Attr.Value = (t: T) => t.toString : Attr.Value) = new BasicAttrBuilder[T](key, convert)
+  @inline final def prop[T](key: String, convert: T => Prop.Value = (t: T) => t) = new PropBuilder[T](key, convert)
+  @inline final def style[T](key: String) = new BasicStyleBuilder[T](key)
 
-  def managed[F[_] : RunSyncEffect : Applicative : Functor, T : CanCancel : Monoid](sub1: F[T], sub2: F[T], subscriptions: F[T]*): Modifier = {
-    val composite = (sub1 :: sub2 :: subscriptions.toList).sequence.map[T](subs => Monoid[T].combineAll(subs))
-    managed(composite)
+  @inline final def managed[F[_] : RunSyncEffect, T : CanCancel](subscription: F[T]): Modifier = managedFunction(() => RunSyncEffect[F].unsafeRun(subscription))
+
+  // @inline final def managedAsync[F[_] : Effect, T : CanCancel](subscription: F[T]): Modifier = subscription.map(managedFunction(() => Cancelable.fromAsyncCancelable(subscription)))
+
+  @inline final def managedFunction[T : CanCancel](subscription: () => T): Modifier = Modifier.delay {
+    var lastSub: js.UndefOr[T] = subscription()
+    Modifier(
+      DomMountHook(_ => lastSub = subscription()),
+      DomUnmountHook(_ => lastSub.foreach(CanCancel[T].cancel))
+    )
   }
 
-  @inline def managedFunction[T : CanCancel](subscription: () => T): Modifier = CancelableModifier(() => Cancelable.lift(subscription()))
+  @inline final def resource[F[_] : RunSyncEffect, R](acquire: F[R])(use: R => Modifier)(release: R => F[Unit]): Modifier = resourceFunction(() => RunSyncEffect[F].unsafeRun(acquire))(use)(r => RunSyncEffect[F].unsafeRun(release(r)))
+
+  // final def resourceAsync[F[_]: Effect, R](acquire: F[R])(use: R => Modifier)(release: R => F[Unit]): Modifier = acquire.map { result =>
+  //   Modifier(use(result), cancelable(Cancelable.fromAsync(release(result))))
+  // }
+
+  final def resourceFunction[R](acquire: () => R)(use: R => Modifier)(release: R => Unit): Modifier = Modifier.delay {
+    val result = acquire()
+    Modifier(use(result), managedFunction(() => Cancelable(() => release(result))))
+  }
 
   object managedElement {
     def apply[T : CanCancel](subscription: dom.Element => T): Modifier = Modifier.delay {
       var lastSub: js.UndefOr[T] = js.undefined
       Modifier(
-        dsl.onDomMount foreach { elem => lastSub = subscription(elem) },
-        dsl.onDomUnmount foreach { lastSub.foreach(CanCancel[T].cancel) }
+        DomMountHook(proxy => proxy.elm.foreach(elm => lastSub = subscription(elm))),
+        DomUnmountHook(_ => lastSub.foreach(CanCancel[T].cancel))
       )
     }
 
@@ -81,9 +100,10 @@ object RModifier extends RModifierOps {
 
   @inline def composite[Env](modifiers: Iterable[RModifier[Env]]): RModifier[Env] = CompositeModifier[Env](modifiers.toJSArray)
 
-  @inline def delay[Env, T : Render[Env, ?]](modifier: => T): RModifier[Env] = SyncEffectModifier[Env](() => RModifier(modifier))
+  @inline def delay[Env, T : Render[Env, ?]](modifier: => T): RModifier[Env] = AccessEnvModifier[Env](env => RModifier(modifier).provide(env))
 
-  @inline def access[Env](modifier: Env => RModifier[Any]): RModifier[Env] = EnvModifier[Env](modifier)
+  @inline def access[Env](modifier: Env => Modifier): RModifier[Env] = AccessEnvModifier(modifier)
+  @inline def accessR[Env, R](modifier: Env => RModifier[R]): RModifier[Env with R] = AccessEnvModifier(env => modifier(env).provide(env))
 
   implicit object monoidk extends MonoidK[RModifier] {
     @inline def empty[Env]: RModifier[Env] = RModifier.empty
@@ -129,8 +149,8 @@ sealed trait DefaultModifier[-Env] extends RModifier[Env] {
   final def append[R](args: RModifier[R]*): RModifier[Env with R] = RModifier(this, RModifier.composite(args))
   final def prepend[R](args: RModifier[R]*): RModifier[Env with R] = RModifier(RModifier.composite(args), this)
 
-  final def provide(env: Env): RModifier[Any] = ProvidedModifier(this, env)
-  final def provideMap[R](map: R => Env): RModifier[R] = EnvModifier[R](env => provide(map(env)))
+  final def provide(env: Env): Modifier = ProvidedModifier(this, env)
+  final def provideMap[R](map: R => Env): RModifier[R] = AccessEnvModifier[R](env => provide(map(env)))
 }
 
 sealed trait StaticModifier extends DefaultModifier[Any]
@@ -183,10 +203,9 @@ case object EmptyModifier extends DefaultModifier[Any]
 final case class CancelableModifier(subscription: () => Cancelable) extends DefaultModifier[Any]
 final case class StringVNode(text: String) extends DefaultModifier[Any]
 final case class ProvidedModifier[Env](modifier: RModifier[Env], env: Env) extends DefaultModifier[Any]
-final case class EnvModifier[Env](modifier: Env => RModifier[Any]) extends DefaultModifier[Env]
+final case class AccessEnvModifier[Env](modifier: Env => Modifier) extends DefaultModifier[Env]
 final case class CompositeModifier[Env](modifiers: Iterable[RModifier[Env]]) extends DefaultModifier[Env]
 final case class StreamModifier[Env](subscription: Observer[RModifier[Env]] => Cancelable) extends DefaultModifier[Env]
-final case class SyncEffectModifier[Env](unsafeRun: () => RModifier[Env]) extends DefaultModifier[Env]
 
 sealed trait RVNode[-Env] extends RModifier[Env] {
   type Self[-R] <: RVNode[R]
@@ -197,6 +216,15 @@ sealed trait RVNode[-Env] extends RModifier[Env] {
 
   final def provide(env: Env): Self[Any] = ???
   final def provideMap[R](map: R => Env): Self[R] = ???
+}
+trait RVNodeOps {
+  @inline final def html(name: String): HtmlVNode = RHtmlVNode(name, js.Array[Modifier]())
+  @inline final def svg(name: String): SvgVNode = RSvgVNode(name, js.Array[Modifier]())
+}
+object RVNode extends RVNodeOps {
+  @inline def access[Env](modifier: Env => Modifier): RModifier[Env] = ???
+}
+object VNode extends RVNodeOps {
 }
 
 sealed trait RBasicVNode[-Env] extends RVNode[Env] {
@@ -226,6 +254,7 @@ sealed trait RExtendVNode[-Env] extends RVNode[Env] {
   def append[R](args: RModifier[R]*): RThunkVNode[Env with R] = copy(baseNode = baseNode.append(args: _*))
   def prepend[R](args: RModifier[R]*): RThunkVNode[Env with R] = copy(baseNode = baseNode.prepend(args :_*))
 }
+
 @inline final case class RConditionalVNode[-Env](baseNode: RBasicVNode[Env], key: Key.Value, shouldRender: Boolean, renderFn: () => RModifier[Env]) extends RExtendVNode[Env] {
   type Self[-R] = RConditionalVNode[R]
 

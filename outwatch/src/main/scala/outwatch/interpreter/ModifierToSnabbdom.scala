@@ -208,20 +208,19 @@ private[outwatch] object SeparatedModifiers {
 private[outwatch] class NativeModifiers(
   val modifiers: MutableNestedArray[StaticModifier],
   val subscribables: MutableNestedArray[Subscribable],
-  val hasStream: Boolean
+  val hasStream: Boolean,
 )
-private[outwatch] class Subscribable(
-  newCancelable: Observer[Unit] => Cancelable
-) {
-  var subscription: Cancelable = null
 
-  def subscribe(sink: Observer[Unit]): Unit = if (subscription == null) {
-    // this is a weird function, it ignores a subsription, eventhough it does not know
-    // wether this specific observer is already subscribed. In this case it is okay,
-    // because this is an internal class that only ever is called with the same observer
+private[outwatch] class Subscribable(newCancelable: () => Cancelable) {
+  private var subscription: Cancelable = null
+
+  // premature subscription on creation of subscribable
+  subscribe()
+
+  def subscribe(): Unit = if (subscription == null) {
     val variable = Cancelable.variable()
     subscription = variable
-    variable() = newCancelable(sink)
+    variable() = newCancelable()
   }
 
   def unsubscribe(): Unit = if (subscription != null) {
@@ -231,8 +230,8 @@ private[outwatch] class Subscribable(
 }
 
 private[outwatch] object NativeModifiers {
-  @inline def from(appendModifiers: js.Array[_ <: RModifier[Any]]): NativeModifiers = from[Any](appendModifiers, ())
-  def from[Env](appendModifiers: js.Array[_ <: RModifier[Env]], env: Env): NativeModifiers = {
+  @inline def from(appendModifiers: js.Array[_ <: RModifier[Any]]): NativeModifiers = from[Any](appendModifiers, Observer.empty, ())
+  def from[Env](appendModifiers: js.Array[_ <: RModifier[Env]], observer: Observer[Unit], env: Env): NativeModifiers = {
     val allModifiers = new MutableNestedArray[StaticModifier]()
     val allSubscribables = new MutableNestedArray[Subscribable]()
     var hasStream = false
@@ -241,7 +240,6 @@ private[outwatch] object NativeModifiers {
 
       @inline def appendStatic(mod: StaticModifier): Unit = {
         modifiers.push(mod)
-        ()
       }
 
       @inline def appendStream(mod: StreamModifier[R]): Unit = {
@@ -250,8 +248,8 @@ private[outwatch] object NativeModifiers {
         val streamedModifiers = new MutableNestedArray[StaticModifier]()
         val streamedSubscribables = new MutableNestedArray[Subscribable]()
 
-        subscribables.push(new Subscribable(
-          sink => mod.subscription(Observer.contramap[Observer, Unit, RModifier[R]](sink) { modifier =>
+        subscribables.push(new Subscribable(() =>
+          mod.subscription(Observer.contramap[Observer, Unit, RModifier[R]](observer) { modifier =>
             streamedSubscribables.foreach(_.unsubscribe())
             streamedSubscribables.clear()
             streamedModifiers.clear()
@@ -261,7 +259,6 @@ private[outwatch] object NativeModifiers {
 
         modifiers.push(streamedModifiers)
         subscribables.push(streamedSubscribables)
-        ()
       }
 
       modifier match {
@@ -272,16 +269,15 @@ private[outwatch] object NativeModifiers {
         case child: RVNode[R] => appendStatic(VNodeProxyNode(SnabbdomOps.toSnabbdom(child, env)))
         case child: StringVNode  => appendStatic(VNodeProxyNode(VNodeProxy.fromString(child.text)))
         case m: StreamModifier[R] => appendStream(m)
-        case s: CancelableModifier => subscribables.push(new Subscribable(_ => s.subscription()))
-        case m: SyncEffectModifier[R] => append(subscribables, modifiers, m.unsafeRun(), env, inStream)
-        case m: EnvModifier[R] => append(subscribables, modifiers, m.modifier(env), env, inStream)
+        case s: CancelableModifier => subscribables.push(new Subscribable(() => s.subscription()))
+        case m: AccessEnvModifier[R] => append(subscribables, modifiers, m.modifier(env), env, inStream)
         case m: ProvidedModifier[_] => append(subscribables, modifiers, m.modifier, m.env, inStream)
       }
     }
 
     appendModifiers.foreach(append(allSubscribables, allModifiers, _, env, inStream = false))
 
-    new NativeModifiers(allModifiers, allSubscribables, hasStream)
+    new NativeModifiers(allModifiers, allSubscribables, hasStream = hasStream)
   }
 
   // if a dom mount hook is streamed, we want to emulate an intuitive interface as if they were static.
@@ -338,7 +334,9 @@ private[outwatch] object NativeModifiers {
       var isOpen = true
       js.Array(
         h,
-        InsertHook { _ => triggered = true },
+        InsertHook { _ =>
+          triggered = true
+        },
         UpdateHook { (o, p) =>
           if (triggered && equalsVNodeIds(o._id, p._id)) isOpen = false
           triggered = true
@@ -361,4 +359,3 @@ private object StyleKey {
   @inline def remove = "remove"
   @inline def destroy = "destroy"
 }
-

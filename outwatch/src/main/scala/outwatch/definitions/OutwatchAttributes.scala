@@ -16,17 +16,14 @@ import scala.scalajs.js
   */
 trait OutwatchAttributes {
 
-  private def proxyElementEmitter(f: js.Function1[VNodeProxy, Unit] => Modifier): Observer[dom.Element] => Modifier =
+  @inline private def proxyElementEmitter(f: js.Function1[VNodeProxy, Unit] => Modifier): Observer[dom.Element] => Modifier =
     obs => f(p => p.elm.foreach(obs.onNext(_)))
-  private def proxyElementFirstEmitter(f: js.Function2[VNodeProxy, VNodeProxy, Unit] => Modifier): Observer[dom.Element] => Modifier =
+  @inline private def proxyElementFirstEmitter(f: js.Function2[VNodeProxy, VNodeProxy, Unit] => Modifier): Observer[dom.Element] => Modifier =
     obs => f((o,_) => o.elm.foreach(obs.onNext(_)))
-  private def proxyElementPairEmitter(f: js.Function2[VNodeProxy, VNodeProxy, Unit] => Modifier): Observer[(dom.Element, dom.Element)] => Modifier =
+  @inline private def proxyElementPairEmitter(f: js.Function2[VNodeProxy, VNodeProxy, Unit] => Modifier): Observer[(dom.Element, dom.Element)] => Modifier =
     obs => f((o,p) => o.elm.foreach(oe => p.elm.foreach(pe => obs.onNext((oe,pe)))))
-  private def proxyElementPairOptionEmitter(f: js.Function2[VNodeProxy, VNodeProxy, Unit] => Modifier): Observer[(Option[dom.Element], Option[dom.Element])] => Modifier =
-    obs => f((o,p) => {
-      obs.onNext((o.elm.toOption, p.elm.toOption))
-      ()
-    })
+  @inline private def proxyElementPairOptionEmitter(f: js.Function2[VNodeProxy, VNodeProxy, Unit] => Modifier): Observer[(Option[dom.Element], Option[dom.Element])] => Modifier =
+    obs => f((o,p) => obs.onNext((o.elm.toOption, p.elm.toOption)))
 
 
   /** Outwatch component life cycle hooks. */
@@ -123,16 +120,43 @@ trait AttributeHelpers { self: Attributes =>
   @inline def data = new DynamicAttrBuilder[Any]("data")
   @inline def aria = new DynamicAttrBuilder[Any]("aria")
 
+  @deprecated("use Modifier.attr instead", "0.11.0")
   @inline def attr[T](key: String, convert: T => Attr.Value = (t: T) => t.toString : Attr.Value) = new BasicAttrBuilder[T](key, convert)
+  @deprecated("use Modifier.prop instead", "0.11.0")
   @inline def prop[T](key: String, convert: T => Prop.Value = (t: T) => t) = new PropBuilder[T](key, convert)
+  @deprecated("use Modifier.style instead", "0.11.0")
   @inline def style[T](key: String) = new BasicStyleBuilder[T](key)
 
+  @deprecated("use EmitterBuilder.fromSource instead", "0.11.0")
   @inline def emitter[F[_] : Source, E](source: F[E]): EmitterBuilder[E, Modifier] = EmitterBuilder.fromSource(source)
 
+  @deprecated("use colibri.Cancelable instead", "0.11.0")
   @inline def cancelable(cancel: () => Unit): Cancelable = Cancelable(cancel)
 }
 
 trait TagHelpers {
-  @inline def htmlTag(name: String): HtmlVNode = HtmlVNode(name, js.Array[Modifier]())
-  @inline def svgTag(name: String): SvgVNode = SvgVNode(name, js.Array[Modifier]())
+  @deprecated("use VNode.html instead", "0.11.0")
+  @inline def htmlTag(name: String): HtmlVNode = VNode.html(name)
+
+  @deprecated("use VNode.svg instead", "0.11.0")
+  @inline def svgTag(name: String): SvgVNode = VNode.svg(name)
+}
+
+trait ManagedHelpers {
+  import colibri._
+  import colibri.effect.RunSyncEffect
+  import cats._
+  import cats.implicits._
+
+  @deprecated("use Modifier.managed(subscription) instead", "1.0.0")
+  @inline def managed[F[_] : RunSyncEffect, T : CanCancel](subscription: F[T]): Modifier = Modifier.managed(subscription)
+  @deprecated("use Modifier.managed(sub1), Modifier.managed(sub2), ... instead", "1.0.0")
+  final def managed[F[_] : RunSyncEffect : Applicative : Functor, T : CanCancel : Monoid](sub1: F[T], sub2: F[T], subscriptions: F[T]*): Modifier = {
+    val composite = (sub1 :: sub2 :: subscriptions.toList).sequence.map[T](subs => Monoid[T].combineAll(subs))
+    managed(composite)
+  }
+  @deprecated("use Modifier.managedFunction(subscription) instead", "1.0.0")
+  @inline def managedFunction[T : CanCancel](subscription: () => T): Modifier = Modifier.managedFunction(subscription)
+  @deprecated("use Modifier.managedElement instead", "1.0.0")
+  val managedElement = Modifier.managedElement
 }

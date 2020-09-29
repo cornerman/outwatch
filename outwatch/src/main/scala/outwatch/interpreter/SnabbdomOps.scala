@@ -94,7 +94,9 @@ private[outwatch] object SnabbdomOps {
     val vNodeNS = getNamespace(node)
     val vNodeId: Int = newNodeId()
 
-    val nativeModifiers = NativeModifiers.from(node.modifiers, env)
+    val observer = new StatefulObserver[Unit]
+
+    val nativeModifiers = NativeModifiers.from(node.modifiers, observer, env)
 
     if (nativeModifiers.subscribables.isEmpty) {
       // if no dynamic/subscribable content, then just create a simple proxy
@@ -152,16 +154,9 @@ private[outwatch] object SnabbdomOps {
         }
       }
 
-      val patchSink = Observer.create[Unit](
-        _ => invokeDoPatch(async = asyncPatchEnabled),
-        OutwatchTracing.errorSubject.onNext
-      )
-
       def start(): Unit = {
         resetTimeout()
-        nativeModifiers.subscribables.foreach { subscribable =>
-          subscribable.subscribe(patchSink)
-        }
+        nativeModifiers.subscribables.foreach(_.subscribe())
       }
 
       def stop(): Unit = {
@@ -194,30 +189,26 @@ private[outwatch] object SnabbdomOps {
         }
       )
 
-      // premature subcription: We will now subscribe, eventhough the node is not yet mounted
-      // but we try to get the initial values from the observables synchronously and that
-      // is only possible if we subscribe before rendering.  Succeeding supscriptions will then
-      // soley be handle by mount/unmount hooks.  And every node within this method is going to
-      // be mounted one way or another and this method is guarded by an effect in the public api.
-      start()
-
       // create initial proxy, we want to apply the initial state of the
       // receivers to the node
       val separatedModifiers = SeparatedModifiers.from(nativeModifiers.modifiers, prependModifiers = _prependModifiers)
       nextModifiers = separatedModifiers.nextModifiers
       proxy = createProxy(separatedModifiers, node.nodeType, vNodeId, vNodeNS)
 
+      // set the patch observer so on subscribable updates we get a patch call
+      observer.set(Observer.create[Unit](
+        _ => invokeDoPatch(async = asyncPatchEnabled),
+        OutwatchTracing.errorSubject.onNext
+      ))
+
       proxy
     } else {
       // simpler version with only subscriptions, no streams.
-      val sink = Observer.empty
-      var isActive = false
+      var isActive = true
 
       def start(): Unit = if (!isActive) {
         isActive = true
-        nativeModifiers.subscribables.foreach { subscribable =>
-          subscribable.subscribe(sink)
-        }
+        nativeModifiers.subscribables.foreach(_.subscribe())
       }
 
       def stop(): Unit = if (isActive) {
@@ -226,22 +217,7 @@ private[outwatch] object SnabbdomOps {
       }
 
       // hooks for subscribing and unsubscribing the streamable content
-      val prependModifiers = js.Array[StaticModifier](
-        InsertHook { _ =>
-          start()
-        },
-        PostPatchHook { (o, p) =>
-          if (!NativeModifiers.equalsVNodeIds(o._id, p._id)) {
-            start()
-          }
-        },
-        DomUnmountHook { _ =>
-          stop()
-        }
-      )
-
-      // premature subcription
-      start()
+      val prependModifiers = js.Array[StaticModifier](DomMountHook(_ => start()), DomUnmountHook(_ => stop()))
 
       // create the proxy from the modifiers
       val separatedModifiers = SeparatedModifiers.from(nativeModifiers.modifiers, prependModifiers = prependModifiers)

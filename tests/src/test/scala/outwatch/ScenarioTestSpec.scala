@@ -246,7 +246,7 @@ class ScenarioTestSpec extends JSDomAsyncSpec {
         .withLatestFrom(textFieldStream)((_, input) => input)
 
     } yield div(
-        emitter(confirm) --> outputStream,
+        EmitterBuilder.fromSource(confirm) --> outputStream,
         label(labelText),
         input(idAttr := "input", tpe := "text", onInput.value --> textFieldStream, onKeyUp --> keyStream),
         button(idAttr := "submit", onClick --> clickStream, disabled <-- buttonDisabled, "Submit")

@@ -976,7 +976,7 @@ class OutWatchDomSpec extends JSDomAsyncSpec {
 
     val messages = PublishSubject[String]()
     val otherMessages = PublishSubject[String]()
-    val vNode = div(style("color") <-- messages)(style("color") <-- otherMessages)
+    val vNode = div(Modifier.style("color") <-- messages)(Modifier.style("color") <-- otherMessages)
 
     val node = IO {
       val node = document.createElement("div")
@@ -1077,7 +1077,7 @@ class OutWatchDomSpec extends JSDomAsyncSpec {
 
   it should "work with custom tags" in {
 
-    val vNode = div(htmlTag("main")())
+    val vNode = div(VNode.html("main")())
 
     val node = IO {
       val node = document.createElement("div")
@@ -2460,7 +2460,7 @@ class OutWatchDomSpec extends JSDomAsyncSpec {
     val aEvent = PublishSubject[String]()
     val bEvent = PublishSubject[String]()
     val innerNode =
-      input(emitter(aEvent).map { x => aCounter += 1; x } .useLatestEmitter(emitter(bEvent).map { x => bCounter += 1; x }) foreach { str =>
+      input(EmitterBuilder.fromSource(aEvent).map { x => aCounter += 1; x } .useLatestEmitter(EmitterBuilder.fromSource(bEvent).map { x => bCounter += 1; x }) foreach { str =>
         lastValue = str
       })
 
