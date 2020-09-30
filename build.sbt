@@ -88,7 +88,7 @@ lazy val outwatchReactive = project
       Nil,
 
     libraryDependencies ++= Seq(
-      "com.github.cornerman.colibri" %%% "colibri" % "f99cb94",
+      "com.github.cornerman.colibri" %%% "colibri" % "e7bc802",
     )
   )
 

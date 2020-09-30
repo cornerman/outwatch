@@ -40,20 +40,7 @@ trait RModifierOps {
 
   @inline final def managed[F[_] : RunSyncEffect, T : CanCancel](subscription: F[T]): Modifier = managedFunction(() => RunSyncEffect[F].unsafeRun(subscription))
 
-  // @inline final def managedAsync[F[_] : Effect, T : CanCancel](subscription: F[T]): Modifier = subscription.map(managedFunction(() => Cancelable.fromAsyncCancelable(subscription)))
-
   @inline final def managedFunction[T : CanCancel](subscription: () => T): Modifier = CancelableModifier(() => Cancelable.lift(subscription()))
-
-  @inline final def resource[F[_] : RunSyncEffect, R](acquire: F[R])(use: R => Modifier)(release: R => F[Unit]): Modifier = resourceFunction(() => RunSyncEffect[F].unsafeRun(acquire))(use)(r => RunSyncEffect[F].unsafeRun(release(r)))
-
-  // final def resourceAsync[F[_]: Effect, R](acquire: F[R])(use: R => Modifier)(release: R => F[Unit]): Modifier = acquire.map { result =>
-  //   Modifier(use(result), cancelable(Cancelable.fromAsync(release(result))))
-  // }
-
-  final def resourceFunction[R](acquire: () => R)(use: R => Modifier)(release: R => Unit): Modifier = Modifier.delay {
-    val result = acquire()
-    Modifier(use(result), managedFunction(() => Cancelable(() => release(result))))
-  }
 
   object managedElement {
     def apply[T : CanCancel](subscription: dom.Element => T): Modifier = Modifier.delay {
