@@ -26,7 +26,7 @@ sealed trait RModifier[-Env] {
   def prepend[R](args: RModifier[R]*): Self[Env with R]
 }
 
-trait RModifierOps {
+sealed trait RModifierOps {
   @inline final def empty: Modifier = EmptyModifier
 
   @inline final def apply(): Modifier = empty
@@ -191,14 +191,17 @@ final case class StreamModifier[Env](subscription: Observer[RModifier[Env]] => C
 sealed trait RVNode[-Env] extends RModifier[Env] {
   type Self[-R] <: RVNode[R]
 
+  def mapModifier[R](f: RModifier[Env] => RModifier[R]): Self[R]
+
   def append[R](args: RModifier[R]*): Self[Env with R]
   def prepend[R](args: RModifier[R]*): Self[Env with R]
+
   @inline final def apply[R](args: RModifier[R]*): Self[Env with R] = append[R](args: _*)
 
-  final def provide(env: Env): Self[Any] = ???
-  final def provideMap[R](map: R => Env): Self[R] = ???
+  @inline final def provide(env: Env): Self[Any] = mapModifier(_.provide(env))
+  @inline final def provideMap[R](map: R => Env): Self[R] = mapModifier(_.provideMap(map))
 }
-trait RVNodeOps {
+sealed trait RVNodeOps {
   @inline final def html(name: String): HtmlVNode = RHtmlVNode(name, js.Array[Modifier]())
   @inline final def svg(name: String): SvgVNode = RSvgVNode(name, js.Array[Modifier]())
 }
@@ -232,25 +235,29 @@ sealed trait RExtendVNode[-Env] extends RVNode[Env] {
 @inline final case class RThunkVNode[-Env](baseNode: RBasicVNode[Env], key: Key.Value, arguments: js.Array[Any], renderFn: () => RModifier[Env]) extends RExtendVNode[Env] {
   type Self[-R] = RThunkVNode[R]
 
-  def append[R](args: RModifier[R]*): RThunkVNode[Env with R] = copy(baseNode = baseNode.append(args: _*))
-  def prepend[R](args: RModifier[R]*): RThunkVNode[Env with R] = copy(baseNode = baseNode.prepend(args :_*))
+  def mapModifier[R](f: RModifier[Env] => RModifier[R]): Self[R] = copy[R](baseNode = baseNode.mapModifier(f), renderFn = () => f(renderFn()))
+  def append[R](args: RModifier[R]*): Self[Env with R] = copy(baseNode = baseNode.append(args: _*))
+  def prepend[R](args: RModifier[R]*): Self[Env with R] = copy(baseNode = baseNode.prepend(args :_*))
 }
 
 @inline final case class RConditionalVNode[-Env](baseNode: RBasicVNode[Env], key: Key.Value, shouldRender: Boolean, renderFn: () => RModifier[Env]) extends RExtendVNode[Env] {
   type Self[-R] = RConditionalVNode[R]
 
-  def append[R](args: RModifier[R]*): RConditionalVNode[Env with R] = copy(baseNode = baseNode.append(args: _*))
-  def prepend[R](args: RModifier[R]*): RConditionalVNode[Env with R] = copy(baseNode = baseNode.prepend(args :_*))
+  def mapModifier[R](f: RModifier[Env] => RModifier[R]): Self[R] = copy[R](baseNode = baseNode.mapModifier(f), renderFn = () => f(renderFn()))
+  def append[R](args: RModifier[R]*): Self[Env with R] = copy(baseNode = baseNode.append(args: _*))
+  def prepend[R](args: RModifier[R]*): Self[Env with R] = copy(baseNode = baseNode.prepend(args :_*))
 }
 @inline final case class RHtmlVNode[-Env](nodeType: String, modifiers: js.Array[_ <: RModifier[Env]]) extends RBasicVNode[Env] {
   type Self[-R] = RHtmlVNode[R]
 
-  def append[R](args: RModifier[R]*): RHtmlVNode[Env with R] = copy(modifiers = appendSeq(modifiers, args))
-  def prepend[R](args: RModifier[R]*): RHtmlVNode[Env with R] = copy(modifiers = prependSeq(modifiers, args))
+  def mapModifier[R](f: RModifier[Env] => RModifier[R]): Self[R] = copy[R](modifiers = js.Array(f(CompositeModifier(modifiers))))
+  def append[R](args: RModifier[R]*): Self[Env with R] = copy(modifiers = appendSeq(modifiers, args))
+  def prepend[R](args: RModifier[R]*): Self[Env with R] = copy(modifiers = prependSeq(modifiers, args))
 }
 @inline final case class RSvgVNode[-Env](nodeType: String, modifiers: js.Array[_ <: RModifier[Env]]) extends RBasicVNode[Env] {
   type Self[-R] = RSvgVNode[R]
 
-  def append[R](args: RModifier[R]*): RSvgVNode[Env with R] = copy(modifiers = appendSeq(modifiers, args))
-  def prepend[R](args: RModifier[R]*): RSvgVNode[Env with R] = copy(modifiers = prependSeq(modifiers, args))
+  def mapModifier[R](f: RModifier[Env] => RModifier[R]): Self[R] = copy[R](modifiers = js.Array(f(CompositeModifier(modifiers))))
+  def append[R](args: RModifier[R]*): Self[Env with R] = copy(modifiers = appendSeq(modifiers, args))
+  def prepend[R](args: RModifier[R]*): Self[Env with R] = copy(modifiers = prependSeq(modifiers, args))
 }
