@@ -19,6 +19,9 @@ package object outwatch extends definitions.ManagedHelpers {
   @deprecated("use Modifier instead", "1.0.0")
   val VDomModifier = Modifier
 
+  @deprecated("use Outwatch instead", "1.0.0")
+  val OutWatch = Outwatch
+
   //TODO: invent typeclass CanBuildStyle[F[_]]
   @inline implicit def StyleIsBuilder[T](style: keys.Style[T]): BasicStyleBuilder[T] = new BasicStyleBuilder[T](style.cssName)
 }

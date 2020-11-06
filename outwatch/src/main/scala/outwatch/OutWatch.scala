@@ -7,7 +7,7 @@ import org.scalajs.dom._
 import outwatch.interpreter.SnabbdomOps
 import snabbdom.{VNodeProxy, patch}
 
-object OutWatch {
+object Outwatch {
   @inline def toSnabbdom[F[_] : Sync](vNode: VNode): F[VNodeProxy] = toSnabbdom[F, Any](vNode, ())
   def toSnabbdom[F[_] : Sync, Env](vNode: RVNode[Env], env: Env): F[VNodeProxy] = Sync[F].delay {
     SnabbdomOps.toSnabbdom(vNode, env)
