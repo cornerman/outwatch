@@ -11,7 +11,10 @@ object dsl extends Attributes with Tags with Styles {
   object attributes extends Attributes {
     object svg extends SvgAttrs
   }
-  object svg extends SvgAttrs with TagsSvg
+  object svg extends SvgAttrs with SvgTags {
+    object tags extends SvgTags
+    object attributes extends SvgAttrs
+  }
   object styles extends Styles {
     object extra extends StylesExtra
   }
