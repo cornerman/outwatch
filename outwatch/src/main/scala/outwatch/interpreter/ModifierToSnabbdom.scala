@@ -271,7 +271,7 @@ private[outwatch] object NativeModifiers {
         case m: StreamModifier[R] => appendStream(m)
         case s: CancelableModifier => subscribables.push(new Subscribable(() => s.subscription()))
         case m: AccessEnvModifier[R] => append(subscribables, modifiers, m.modifier(env), env, inStream)
-        case m: ProvidedModifier[_] => append(subscribables, modifiers, m.modifier, m.env, inStream)
+        case m: ProvidedEnvModifier[_] => append(subscribables, modifiers, m.modifier, m.env, inStream)
       }
     }
 

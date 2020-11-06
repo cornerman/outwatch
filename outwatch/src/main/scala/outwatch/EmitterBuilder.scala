@@ -131,8 +131,6 @@ trait REmitterBuilderExec[-Env, +O, +R <: RModifier[Env], +Exec <: REmitterBuild
 
   @inline final def mapResult[SEnv, S <: RModifier[SEnv]](f: R => S): REmitterBuilderExec[SEnv, O, S, Exec] = new REmitterBuilderExec.MapResult[Env, SEnv, O, R, S, Exec](this, f)
 
-  // @inline final def appendModifier(modifier: RModifier[Env]): REmitterBuilderExec[Env, O, RModifier[Env], Exec] = mapResult[Env, RModifier[Env]](m => m.append(modifier))
-
   @inline final def provide(env: Env): EmitterBuilderExec[O, Modifier, Exec] = new REmitterBuilderExec.Provide[Env, O, Exec](this, env)
 }
 
