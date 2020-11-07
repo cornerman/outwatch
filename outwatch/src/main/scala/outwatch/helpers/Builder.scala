@@ -5,14 +5,10 @@ import colibri.{Source, Observable}
 
 import scala.language.dynamics
 
-trait AttributeBuilder[-T, +A <: Modifier] extends Any {
+trait AttributeBuilder[-T, +A] extends Any {
   def assign(value: T): A
 
   final def assignOption(value: Option[T]): Option[A] = value.map(assign)
-
-  final def toggle(value: T): AttributeBuilder[Boolean, Modifier] = AttributeBuilder.ofModifier { enabled =>
-    if (enabled) assign(value) else Modifier.empty
-  }
 
   @inline final def :=(value: T): A = assign(value)
 
@@ -24,13 +20,24 @@ trait AttributeBuilder[-T, +A <: Modifier] extends Any {
 }
 
 object AttributeBuilder {
-  @inline def apply[T, A <: Modifier](create: T => A): AttributeBuilder[T, A] = new AttributeBuilderApply[T, A](create)
-  @inline private class AttributeBuilderApply[T, A <: Modifier](create: T => A) extends AttributeBuilder[T, A] {
+  @inline def apply[T, A](create: T => A): AttributeBuilder[T, A] = new AttributeBuilderApply[T, A](create)
+  @inline private class AttributeBuilderApply[T, A](create: T => A) extends AttributeBuilder[T, A] {
     @inline def assign(value: T): A = create(value)
   }
 
   @inline def ofModifier[T](create: T => Modifier): AttributeBuilder[T, Modifier] = apply(create)
   @inline def ofNode[T](create: T => VNode): AttributeBuilder[T, VNode] = apply(create)
+
+  @inline class AttributeBuilderModifier[Env, T, A <: RModifier[Env]](val builder: AttributeBuilder[T, RModifier[Env]]) extends AnyVal {
+    final def toggle(value: T): AttributeBuilder[Boolean, RModifier[Env]] = RAttributeBuilder.ofModifier { enabled =>
+      if (enabled) builder.assign(value) else Modifier.empty
+    }
+  }
+}
+
+object RAttributeBuilder {
+  @inline def ofModifier[Env, T](create: T => RModifier[Env]): AttributeBuilder[T, RModifier[Env]] = AttributeBuilder(create)
+  @inline def ofNode[Env, T](create: T => RVNode[Env]): AttributeBuilder[T, RVNode[Env]] = AttributeBuilder(create)
 }
 
 // Attr
