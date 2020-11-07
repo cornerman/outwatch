@@ -27,6 +27,8 @@ sealed trait RModifier[-Env] {
 }
 
 sealed trait RModifierOps {
+  type WithSelf[-Env, Mod[-Env] <: RModifier[Env]] = Mod[Env] { type Self[-R] = Mod[R] }
+
   @inline final def empty: Modifier = EmptyModifier
 
   @inline final def apply(): Modifier = empty
@@ -228,9 +230,6 @@ object RBasicVNode {
 sealed trait RExtendVNode[-Env] extends RVNode[Env] {
   type Self[-R] <: RExtendVNode[R]
 }
-
-// final case class ProvidedVNode(runWith: ProvidedModifierConsumer[RVNode] => Unit) extends RVNode[Any]
-// final case class EnvVNode[Env](modifier: Env => RVNode[Any]) extends RVNode[Env]
 
 @inline final case class RThunkVNode[-Env](baseNode: RBasicVNode[Env], key: Key.Value, arguments: js.Array[Any], renderFn: () => RModifier[Env]) extends RExtendVNode[Env] {
   type Self[-R] = RThunkVNode[R]
