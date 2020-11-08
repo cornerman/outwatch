@@ -2,9 +2,7 @@ import com.raquo.domtypes.generic.keys
 import outwatch.helpers.BasicStyleBuilder
 
 package object outwatch extends definitions.ManagedHelpers {
-  type EmitterBuilderExec[+O, +R <: Modifier, +Exec <: REmitterBuilderExec.Execution] = REmitterBuilderExec[Any, O, R, Exec]
-  type REmitterBuilder[-Env, +O, +R <: RModifier[Env]] = REmitterBuilderExec[Env, O, R, REmitterBuilderExec.Execution]
-  type EmitterBuilder[+O, +R <: Modifier] = REmitterBuilder[Any, O, R]
+  type EmitterBuilder[+O, +R] = EmitterBuilderExec[O, R, EmitterBuilderExec.Execution]
 
   type Modifier = RModifier[Any]
   type VNode = RVNode[Any]

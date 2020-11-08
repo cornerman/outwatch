@@ -25,24 +25,21 @@ object AttributeBuilder {
     @inline def assign(value: T): A = create(value)
   }
 
-  @inline def ofModifier[T](create: T => Modifier): AttributeBuilder[T, Modifier] = apply(create)
-  @inline def ofNode[T](create: T => VNode): AttributeBuilder[T, VNode] = apply(create)
+  @inline def ofModifier[T](create: T => Modifier): AttributeBuilder[T, Modifier] = ofRModifier[Any, T](create)
+  @inline def ofVNode[T](create: T => VNode): AttributeBuilder[T, VNode] = ofRVNode[Any, T](create)
+  @inline def ofRModifier[Env, T](create: T => RModifier[Env]): AttributeBuilder[T, RModifier[Env]] = apply(create)
+  @inline def ofRVNode[Env, T](create: T => RVNode[Env]): AttributeBuilder[T, RVNode[Env]] = apply(create)
 
   @inline class AttributeBuilderModifier[Env, T, A <: RModifier[Env]](val builder: AttributeBuilder[T, RModifier[Env]]) extends AnyVal {
-    final def toggle(value: T): AttributeBuilder[Boolean, RModifier[Env]] = RAttributeBuilder.ofModifier { enabled =>
+    final def toggle(value: T): AttributeBuilder[Boolean, RModifier[Env]] = AttributeBuilder.ofRModifier { enabled =>
       if (enabled) builder.assign(value) else Modifier.empty
     }
   }
 }
 
-object RAttributeBuilder {
-  @inline def ofModifier[Env, T](create: T => RModifier[Env]): AttributeBuilder[T, RModifier[Env]] = AttributeBuilder(create)
-  @inline def ofNode[Env, T](create: T => RVNode[Env]): AttributeBuilder[T, RVNode[Env]] = AttributeBuilder(create)
-}
-
 // Attr
 
-@inline final class BasicAttrBuilder[T](val name: String, val encode: T => Attr.Value) extends AttributeBuilder[T, BasicAttr] {
+@inline final class BasicAttrBuilder[T](val name: String, encode: T => Attr.Value) extends AttributeBuilder[T, BasicAttr] {
   def assign(value: T) = BasicAttr(name, encode(value))
 
   @inline def accum(s: String): AccumAttrBuilder[T] = accum((v1, v2) => v1.toString + s + v2.toString)
