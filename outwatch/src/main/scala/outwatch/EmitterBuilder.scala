@@ -178,12 +178,6 @@ object EmitterBuilderExec {
     @inline def forwardTo[F[_] : Sink](sink: F[_ >: O]): RModifier[Env] = RModifier.access(env => base(env).forwardTo(sink))
   }
 
-  @inline final class Provide[-Env, +O, Exec <: Execution](base: EmitterBuilderExec[O, RModifier[Env], Exec], env: Env) extends EmitterBuilderExec[O, Modifier, Exec] {
-    @inline private[outwatch] def transformSinkWithExec[T](f: Observer[T] => Observer[O]): EmitterBuilderExec[T, Modifier, Exec] = new Provide(base.transformSinkWithExec(f), env)
-    @inline private[outwatch] def transformWithExec[T](f: Observable[O] => Observable[T]): EmitterBuilderExec[T, Modifier, Exec] = new Provide(base.transformWithExec(f), env)
-    @inline def forwardTo[F[_] : Sink](sink: F[_ >: O]): Modifier = base.forwardTo(sink).provide(env)
-  }
-
   @inline implicit def monoid[T, Exec <: Execution]: Monoid[EmitterBuilderExec[T, Modifier, Exec]] = new EmitterBuilderMonoid[T, Exec]
   @inline class EmitterBuilderMonoid[T, Exec <: Execution] extends Monoid[EmitterBuilderExec[T, Modifier, Exec]] {
     @inline def empty: EmitterBuilderExec[T, Modifier, Exec] = EmitterBuilder.empty
@@ -207,14 +201,12 @@ object EmitterBuilderExec {
     @inline def withLatestEmitter[T](emitter: EmitterBuilder[T, RModifier[Env]]): EmitterBuilderExec[(O,T), RModifier[Env], Exec] = combineWithLatestEmitter(builder, emitter)
     @inline def useLatestEmitter[T](emitter: EmitterBuilder[T, RModifier[Env]]): EmitterBuilderExec[T, RModifier[Env], Exec] = withLatestEmitter(emitter).map(_._2)
 
-    @inline final def provide(env: Env): EmitterBuilderExec[O, Modifier, Exec] = new Provide[Env, O, Exec](builder, env)
-    @inline final def provideMap[REnv](map: REnv => Env): EmitterBuilderExec[O, RModifier[REnv], Exec] = EmitterBuilder.access(env => provide(map(env)))
+    @inline final def provide(env: Env): EmitterBuilderExec[O, Modifier, Exec] = builder.mapResult(_.provide(env))
+    @inline final def provideMap[REnv](map: REnv => Env): EmitterBuilderExec[O, RModifier[REnv], Exec] = EmitterBuilder.access(map andThen provide)
   }
 
-  //FIXME
   @inline implicit class VNodeOperations[Env, O, Exec <: Execution](val builder: EmitterBuilderExec[O, RVNode[Env], Exec]) extends AnyVal {
-    @inline final def provide(env: Env): EmitterBuilderExec[O, Modifier, Exec] = new Provide[Env, O, Exec](builder, env)
-    @inline final def provideMap[REnv](map: REnv => Env): EmitterBuilderExec[O, RModifier[REnv], Exec] = EmitterBuilder.access(env => provide(map(env)))
+    @inline final def provide(env: Env): EmitterBuilderExec[O, VNode, Exec] = builder.mapResult(_.provide(env))
   }
 
   @inline implicit class EventActions[O <: dom.Event, R](val builder: EmitterBuilder.Sync[O, R]) extends AnyVal {
