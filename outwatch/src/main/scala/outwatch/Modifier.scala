@@ -205,19 +205,17 @@ final case class StreamModifier[-Env](subscription: Observer[RModifier[Env]] => 
 sealed trait RVNode[-Env] extends RModifier[Env] {
   type Self[-R] <: RVNode[R]
 
-  def mapModifier[R](f: RModifier[Env] => RModifier[R]): Self[R]
+  def provide(env: Env): Self[Any]
+  def provideMap[R](map: R => Env): Self[R]
 
   def append[R](args: RModifier[R]*): Self[Env with R]
   def prepend[R](args: RModifier[R]*): Self[Env with R]
 
   @inline final def apply[R](args: RModifier[R]*): Self[Env with R] = append[R](args: _*)
-
-  @inline final def provide(env: Env): Self[Any] = mapModifier(_.provide(env))
-  // @inline final def provideMap[R](map: R => Env): Self[R] = mapModifier(_.provideMap(map))
 }
 sealed trait RVNodeOps {
-  @inline final def html(name: String): HtmlVNode = RHtmlVNode(name, js.Array[Modifier]())
-  @inline final def svg(name: String): SvgVNode = RSvgVNode(name, js.Array[Modifier]())
+  @inline final def html(name: String): BasicVNode = RBasicVNodeNS(name, js.Array[Modifier](), VNodeNamespace.Html)
+  @inline final def svg(name: String): BasicVNode = RBasicVNodeNS(name, js.Array[Modifier](), VNodeNamespace.Svg)
 }
 object RVNode extends RVNodeOps {
   @inline def access[Env](node: Env => VNode): RVNode[Env] = new AccessEnvVNode(node)
@@ -230,58 +228,47 @@ object RVNode extends RVNodeOps {
 }
 object VNode extends RVNodeOps
 
-sealed trait RBasicVNode[-Env] extends RVNode[Env] {
-  type Self[-R] <: RBasicVNode[R]
-
-  def nodeType: String
-  def modifiers: js.Array[_ <: RModifier[Env]]
-}
-object RBasicVNode {
-  @inline implicit class RBasicVNodeOps[Env](val self: RBasicVNode[Env]) extends AnyVal {
-    @inline def thunk(key: Key.Value)(arguments: Any*)(renderFn: => RModifier[Env]): RThunkVNode[Env] = RThunkVNode(self, key, arguments.toJSArray, () => renderFn)
-    @inline def thunkConditional(key: Key.Value)(shouldRender: Boolean)(renderFn: => RModifier[Env]): RConditionalVNode[Env] = RConditionalVNode(self, key, shouldRender, () => renderFn)
-    @inline def thunkStatic(key: Key.Value)(renderFn: => RModifier[Env]): RConditionalVNode[Env] = thunkConditional(key)(false)(renderFn)
-  }
-}
-
-sealed trait RExtendVNode[-Env] extends RVNode[Env] {
-  type Self[-R] <: RExtendVNode[R]
-}
-
-@inline final case class AccessEnvVNode[-Env](node: Env => VNode) extends RExtendVNode[Env] {
+@inline final case class AccessEnvVNode[-Env](node: Env => VNode) extends RVNode[Env] {
   type Self[-R] = AccessEnvVNode[R]
 
-  def mapModifier[R](f: RModifier[Env] => RModifier[R]): Self[R] = copy[R](node = env => node(env).mapModifier(f).provide(env))
+  def provide(env: Env): Self[Any] = copy(node = _ => node(env))
+  def provideMap[R](map: R => Env): Self[R] = copy(node = r => node(map(r)))
   def append[R](args: RModifier[R]*): Self[Env with R] = copy(node = env => node(env).append(RModifier.composite(args).provide(env)))
   def prepend[R](args: RModifier[R]*): Self[Env with R] = copy(node = env => node(env).prepend(RModifier.composite(args).provide(env)))
 }
 
-@inline final case class RThunkVNode[-Env](baseNode: RBasicVNode[Env], key: Key.Value, arguments: js.Array[Any], renderFn: () => RModifier[Env]) extends RExtendVNode[Env] {
+@inline final case class RThunkVNode[-Env](baseNode: RBasicVNode[Env], key: Key.Value, condition: VNodeThunkCondition, renderFn: () => RModifier[Env]) extends RVNode[Env] {
   type Self[-R] = RThunkVNode[R]
 
-  def mapModifier[R](f: RModifier[Env] => RModifier[R]): Self[R] = copy(baseNode = baseNode.mapModifier(f), renderFn = () => f(renderFn()))
+  def provide(env: Env): Self[Any] = copy(baseNode = baseNode.provide(env), renderFn = () => renderFn().provide(env))
+  def provideMap[R](map: R => Env): Self[R] = copy(baseNode = baseNode.provideMap(map), renderFn = () => renderFn().provideMap(map))
   def append[R](args: RModifier[R]*): Self[Env with R] = copy(baseNode = baseNode.append(args: _*))
   def prepend[R](args: RModifier[R]*): Self[Env with R] = copy(baseNode = baseNode.prepend(args: _*))
 }
 
-@inline final case class RConditionalVNode[-Env](baseNode: RBasicVNode[Env], key: Key.Value, shouldRender: Boolean, renderFn: () => RModifier[Env]) extends RExtendVNode[Env] {
-  type Self[-R] = RConditionalVNode[R]
+@inline final case class RBasicVNodeNS[+N <: VNodeNamespace, -Env](nodeType: String, modifiers: js.Array[_ <: RModifier[Env]], namespace: N) extends RVNode[Env] {
+  type Self[-R] = RBasicVNode[R]
 
-  def mapModifier[R](f: RModifier[Env] => RModifier[R]): Self[R] = copy[R](baseNode = baseNode.mapModifier(f), renderFn = () => f(renderFn()))
-  def append[R](args: RModifier[R]*): Self[Env with R] = copy(baseNode = baseNode.append(args: _*))
-  def prepend[R](args: RModifier[R]*): Self[Env with R] = copy(baseNode = baseNode.prepend(args: _*))
-}
-@inline final case class RHtmlVNode[-Env](nodeType: String, modifiers: js.Array[_ <: RModifier[Env]]) extends RBasicVNode[Env] {
-  type Self[-R] = RHtmlVNode[R]
-
-  def mapModifier[R](f: RModifier[Env] => RModifier[R]): Self[R] = copy[R](modifiers = js.Array(f(CompositeModifier(modifiers))))
+  def provide(env: Env): Self[Any] = copy(modifiers = js.Array(CompositeModifier(modifiers).provide(env)))
+  def provideMap[R](map: R => Env): Self[R] = copy(modifiers = js.Array(CompositeModifier(modifiers).provideMap(map)))
   def append[R](args: RModifier[R]*): Self[Env with R] = copy(modifiers = appendSeq(modifiers, args))
   def prepend[R](args: RModifier[R]*): Self[Env with R] = copy(modifiers = prependSeq(modifiers, args))
 }
-@inline final case class RSvgVNode[-Env](nodeType: String, modifiers: js.Array[_ <: RModifier[Env]]) extends RBasicVNode[Env] {
-  type Self[-R] = RSvgVNode[R]
+object RBasicVNodeNS {
+  @inline implicit class RBasicVNodeOps[Env](val self: RBasicVNodeNS[VNodeNamespace, Env]) extends AnyVal {
+    @inline def thunk(key: Key.Value)(arguments: Any*)(renderFn: => RModifier[Env]): RThunkVNode[Env] = RThunkVNode(self, key, VNodeThunkCondition.Compare(arguments.toJSArray), () => renderFn)
+    @inline def thunkConditional(key: Key.Value)(shouldRender: Boolean)(renderFn: => RModifier[Env]): RThunkVNode[Env] = RThunkVNode(self, key, VNodeThunkCondition.Check(shouldRender), () => renderFn)
+    @inline def thunkStatic(key: Key.Value)(renderFn: => RModifier[Env]): RThunkVNode[Env] = thunkConditional(key)(false)(renderFn)
+  }
+}
 
-  def mapModifier[R](f: RModifier[Env] => RModifier[R]): Self[R] = copy[R](modifiers = js.Array(f(CompositeModifier(modifiers))))
-  def append[R](args: RModifier[R]*): Self[Env with R] = copy(modifiers = appendSeq(modifiers, args))
-  def prepend[R](args: RModifier[R]*): Self[Env with R] = copy(modifiers = prependSeq(modifiers, args))
+sealed trait VNodeNamespace
+object VNodeNamespace {
+  case object Html extends VNodeNamespace
+  case object Svg extends VNodeNamespace
+}
+sealed trait VNodeThunkCondition
+object VNodeThunkCondition {
+  case class Check(shouldRender: Boolean) extends VNodeThunkCondition
+  case class Compare(arguments: js.Array[Any]) extends VNodeThunkCondition
 }

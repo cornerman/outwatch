@@ -17,10 +17,15 @@ private[outwatch] object SnabbdomOps {
    def toSnabbdom(node: VNode): VNodeProxy = node match {
      case node: BasicVNode =>
        toRawSnabbdomProxy(node)
-     case node: ConditionalVNode =>
-       thunk.conditional(getNamespace(node.baseNode), node.baseNode.nodeType, node.key, () => toRawSnabbdomProxy(node.baseNode(node.renderFn(), Key(node.key))), node.shouldRender)
+     case node: AccessEnvVNode[Any] =>
+       toSnabbdom(node.node(()))
      case node: ThunkVNode =>
-       thunk(getNamespace(node.baseNode), node.baseNode.nodeType, node.key, () => toRawSnabbdomProxy(node.baseNode(node.renderFn(), Key(node.key))), node.arguments)
+       node.condition match {
+         case VNodeThunkCondition.Check(shouldRender) =>
+          thunk.conditional(getNamespace(node.baseNode.namespace), node.baseNode.nodeType, node.key, () => toRawSnabbdomProxy(node.baseNode(node.renderFn(), Key(node.key))), shouldRender)
+         case VNodeThunkCondition.Compare(arguments) =>
+          thunk(getNamespace(node.baseNode.namespace), node.baseNode.nodeType, node.key, () => toRawSnabbdomProxy(node.baseNode(node.renderFn(), Key(node.key))), arguments)
+       }
    }
 
   @inline private def createDataObject(modifiers: SeparatedModifiers, vNodeNS: js.UndefOr[String]): DataObject =
@@ -61,9 +66,9 @@ private[outwatch] object SnabbdomOps {
     } else newProxy(modifiers.proxies, js.undefined)
   }
 
-   private def getNamespace(node: RBasicVNode[Nothing]): js.UndefOr[String] = node match {
-    case _: RSvgVNode[_] => "http://www.w3.org/2000/svg": js.UndefOr[String]
-    case _ => js.undefined
+   private def getNamespace(node: VNodeNamespace): js.UndefOr[String] = node match {
+    case VNodeNamespace.Html => js.undefined
+    case VNodeNamespace.Svg => "http://www.w3.org/2000/svg"
   }
 
    private val newNodeId: () => Int = {
@@ -90,7 +95,7 @@ private[outwatch] object SnabbdomOps {
     // we mutate the initial proxy and thereby mutate the proxy the parent knows.
    private def toRawSnabbdomProxy(node: BasicVNode): VNodeProxy = {
 
-    val vNodeNS = getNamespace(node)
+    val vNodeNS = getNamespace(node.namespace)
     val vNodeId: Int = newNodeId()
 
     val observer = new StatefulObserver[Unit]

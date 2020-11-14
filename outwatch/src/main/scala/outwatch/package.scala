@@ -6,9 +6,11 @@ package object outwatch extends definitions.ManagedHelpers {
 
   type Modifier = RModifier[Any]
   type VNode = RVNode[Any]
-  type BasicVNode = RBasicVNode[Any]
-  type ConditionalVNode = RConditionalVNode[Any]
   type ThunkVNode = RThunkVNode[Any]
+  type RBasicVNode[-Env] = RBasicVNodeNS[VNodeNamespace, Env]
+  type BasicVNode = RBasicVNode[Any]
+  type RHtmlVNode[-Env] = BasicVNode //RBasicVNodeNS[VNodeNamespace.Html, Any]
+  type RSvgVNode[-Env] = BasicVNode //RBasicVNodeNS[VNodeNamespace.Svg, Any]
   type HtmlVNode = RHtmlVNode[Any]
   type SvgVNode = RSvgVNode[Any]
 
