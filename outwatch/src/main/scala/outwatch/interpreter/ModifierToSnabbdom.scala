@@ -230,8 +230,7 @@ private[outwatch] class Subscribable(newCancelable: () => Cancelable) {
 }
 
 private[outwatch] object NativeModifiers {
-  @inline def from(appendModifiers: js.Array[_ <: RModifier[Any]]): NativeModifiers = from[Any](appendModifiers, Observer.empty, ())
-  def from[Env](appendModifiers: js.Array[_ <: RModifier[Env]], observer: Observer[Unit], env: Env): NativeModifiers = {
+  def from(appendModifiers: js.Array[_ <: Modifier], observer: Observer[Unit]): NativeModifiers = {
     val allModifiers = new MutableNestedArray[StaticModifier]()
     val allSubscribables = new MutableNestedArray[Subscribable]()
     var hasStream = false
@@ -266,7 +265,7 @@ private[outwatch] object NativeModifiers {
         case c: CompositeModifier[R] => c.modifiers.foreach(append(subscribables, modifiers, _, env, inStream))
         case h: DomHook if inStream => mirrorStreamedDomHook(h).foreach(appendStatic)
         case mod: StaticModifier => appendStatic(mod)
-        case child: RVNode[R] => appendStatic(VNodeProxyNode(SnabbdomOps.toSnabbdom(child, env)))
+        case child: RVNode[R] => appendStatic(VNodeProxyNode(SnabbdomOps.toSnabbdom(child.provide(env))))
         case child: StringVNode  => appendStatic(VNodeProxyNode(VNodeProxy.fromString(child.text)))
         case m: StreamModifier[R] => appendStream(m)
         case s: CancelableModifier => subscribables.push(new Subscribable(() => s.subscription()))
@@ -275,7 +274,7 @@ private[outwatch] object NativeModifiers {
       }
     }
 
-    appendModifiers.foreach(append(allSubscribables, allModifiers, _, env, inStream = false))
+    appendModifiers.foreach(append[Any](allSubscribables, allModifiers, _, (), inStream = false))
 
     new NativeModifiers(allModifiers, allSubscribables, hasStream = hasStream)
   }

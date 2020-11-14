@@ -86,7 +86,7 @@ object RModifier extends RModifierOps {
   @inline def delay[Env, T : Render[Env, ?]](modifier: => T): RModifier[Env] = AccessEnvModifier[Env](env => RModifier(modifier).provide(env))
 
   @inline def access[Env](modifier: Env => Modifier): RModifier[Env] = AccessEnvModifier(modifier)
-  @inline def accessR[Env, R](modifier: Env => RModifier[R]): RModifier[Env with R] = AccessEnvModifier(env => modifier(env).provide(env))
+  @inline def accessR[Env, R](modifier: Env => RModifier[R]): RModifier[Env with R] = access(env => modifier(env).provide(env))
 
   implicit object monoidk extends MonoidK[RModifier] {
     @inline def empty[Env]: RModifier[Env] = RModifier.empty
@@ -213,13 +213,16 @@ sealed trait RVNode[-Env] extends RModifier[Env] {
   @inline final def apply[R](args: RModifier[R]*): Self[Env with R] = append[R](args: _*)
 
   @inline final def provide(env: Env): Self[Any] = mapModifier(_.provide(env))
-  @inline final def provideMap[R](map: R => Env): Self[R] = mapModifier(_.provideMap(map))
+  // @inline final def provideMap[R](map: R => Env): Self[R] = mapModifier(_.provideMap(map))
 }
 sealed trait RVNodeOps {
   @inline final def html(name: String): HtmlVNode = RHtmlVNode(name, js.Array[Modifier]())
   @inline final def svg(name: String): SvgVNode = RSvgVNode(name, js.Array[Modifier]())
 }
 object RVNode extends RVNodeOps {
+  @inline def access[Env](node: Env => VNode): RVNode[Env] = new AccessEnvVNode(node)
+  @inline def accessR[Env, R](node: Env => RVNode[R]): RVNode[Env with R] = access(env => node(env).provide(env))
+
   @inline implicit def subscriptionOwner[Env]: SubscriptionOwner[RVNode[Env]] = new VNodeSubscriptionOwner[Env]
   @inline class VNodeSubscriptionOwner[Env] extends SubscriptionOwner[RVNode[Env]] {
     @inline def own(owner: RVNode[Env])(subscription: () => Cancelable): RVNode[Env] = owner.append(Modifier.managedFunction(subscription))
@@ -243,6 +246,14 @@ object RBasicVNode {
 
 sealed trait RExtendVNode[-Env] extends RVNode[Env] {
   type Self[-R] <: RExtendVNode[R]
+}
+
+@inline final case class AccessEnvVNode[-Env](node: Env => VNode) extends RExtendVNode[Env] {
+  type Self[-R] = AccessEnvVNode[R]
+
+  def mapModifier[R](f: RModifier[Env] => RModifier[R]): Self[R] = copy[R](node = env => node(env).mapModifier(f).provide(env))
+  def append[R](args: RModifier[R]*): Self[Env with R] = copy(node = env => node(env).append(RModifier.composite(args).provide(env)))
+  def prepend[R](args: RModifier[R]*): Self[Env with R] = copy(node = env => node(env).prepend(RModifier.composite(args).provide(env)))
 }
 
 @inline final case class RThunkVNode[-Env](baseNode: RBasicVNode[Env], key: Key.Value, arguments: js.Array[Any], renderFn: () => RModifier[Env]) extends RExtendVNode[Env] {

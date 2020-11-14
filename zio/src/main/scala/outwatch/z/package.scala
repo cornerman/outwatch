@@ -44,4 +44,19 @@ package object z {
     @inline def foreachZIO[R](action: O => RIO[R, Unit]): RIO[ZModifierEnv with R with Env, Result] = concatMapZIO(action).discard
     @inline def doZIO[R](action: RIO[R, Unit]): RIO[ZModifierEnv with R with Env, Result] = foreachZIO(_ => action)
   }
+
+  @inline implicit class EmitterBuilderOps[O, Result, Exec <: EmitterBuilderExec.Execution](val self: EmitterBuilderExec[O, Result, Exec]) extends AnyVal {
+    @inline def useZIO[R, T](effect: RIO[R, T]): EmitterBuilder[T, RIO[ZModifierEnv with R, Result]] =
+      concatMapZIO(_ => effect)
+
+    @inline def concatMapZIO[R, T](effect: O => RIO[R, T]): EmitterBuilder[T, RIO[ZModifierEnv with R, Result]] =
+      ???
+      // EmitterBuilder.access { env =>
+      //   implicit val runtime = Runtime(env, env.get[Platform])
+      //   self.concatMapAsync(effect).provide(env)
+      // }
+
+    @inline def foreachZIO[R](action: O => RIO[R, Unit]): RIO[ZModifierEnv with R, Result] = concatMapZIO(action).discard
+    @inline def doZIO[R](action: RIO[R, Unit]): RIO[ZModifierEnv with R, Result] = foreachZIO(_ => action)
+  }
 }

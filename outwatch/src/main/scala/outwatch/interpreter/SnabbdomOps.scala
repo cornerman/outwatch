@@ -14,14 +14,13 @@ private[outwatch] object SnabbdomOps {
   // sync/async batching like monix-scheduler makes sense for us.
   var asyncPatchEnabled = false
 
-   @inline def toSnabbdom(node: RVNode[Any]): VNodeProxy = toSnabbdom[Any](node, ())
-   def toSnabbdom[Env](node: RVNode[Env], env: Env): VNodeProxy = node match {
-     case node: RBasicVNode[Env] =>
-       toRawSnabbdomProxy(node, env)
-     case node: RConditionalVNode[Env] =>
-       thunk.conditional(getNamespace(node.baseNode), node.baseNode.nodeType, node.key, () => toRawSnabbdomProxy(node.baseNode(node.renderFn(), Key(node.key)), env), node.shouldRender)
-     case node: RThunkVNode[Env] =>
-       thunk(getNamespace(node.baseNode), node.baseNode.nodeType, node.key, () => toRawSnabbdomProxy(node.baseNode(node.renderFn(), Key(node.key)), env), node.arguments)
+   def toSnabbdom(node: VNode): VNodeProxy = node match {
+     case node: BasicVNode =>
+       toRawSnabbdomProxy(node)
+     case node: ConditionalVNode =>
+       thunk.conditional(getNamespace(node.baseNode), node.baseNode.nodeType, node.key, () => toRawSnabbdomProxy(node.baseNode(node.renderFn(), Key(node.key))), node.shouldRender)
+     case node: ThunkVNode =>
+       thunk(getNamespace(node.baseNode), node.baseNode.nodeType, node.key, () => toRawSnabbdomProxy(node.baseNode(node.renderFn(), Key(node.key))), node.arguments)
    }
 
   @inline private def createDataObject(modifiers: SeparatedModifiers, vNodeNS: js.UndefOr[String]): DataObject =
@@ -89,14 +88,14 @@ private[outwatch] object SnabbdomOps {
     // if now the parent is rerendered because a sibiling of the parent triggers an update, the parent
     // renders its children again. But it would not have the correct state of this proxy. Therefore,
     // we mutate the initial proxy and thereby mutate the proxy the parent knows.
-   private def toRawSnabbdomProxy[Env](node: RBasicVNode[Env], env: Env): VNodeProxy = {
+   private def toRawSnabbdomProxy(node: BasicVNode): VNodeProxy = {
 
     val vNodeNS = getNamespace(node)
     val vNodeId: Int = newNodeId()
 
     val observer = new StatefulObserver[Unit]
 
-    val nativeModifiers = NativeModifiers.from(node.modifiers, observer, env)
+    val nativeModifiers = NativeModifiers.from(node.modifiers, observer)
 
     if (nativeModifiers.subscribables.isEmpty) {
       // if no dynamic/subscribable content, then just create a simple proxy
