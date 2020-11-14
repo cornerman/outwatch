@@ -182,7 +182,7 @@ object EmitterBuilderExec {
   @inline class EmitterBuilderMonoid[T, Exec <: Execution] extends Monoid[EmitterBuilderExec[T, Modifier, Exec]] {
     @inline def empty: EmitterBuilderExec[T, Modifier, Exec] = EmitterBuilder.empty
     @inline def combine(x: EmitterBuilderExec[T, Modifier, Exec], y: EmitterBuilderExec[T, Modifier, Exec]): EmitterBuilderExec[T, Modifier, Exec] = EmitterBuilder.combine(x, y)
-    @inline override def combineAll(x: IterableOnce[EmitterBuilderExec[T, Modifier, Exec]]): EmitterBuilderExec[T, Modifier, Exec] = EmitterBuilder.combineAll(x)
+    // @inline override def combineAll(x: Iterable[EmitterBuilderExec[T, Modifier, Exec]]): EmitterBuilderExec[T, Modifier, Exec] = EmitterBuilder.combineAll(x)
   }
 
   @inline implicit def functor[R, Exec <: Execution]: Functor[EmitterBuilderExec[?, R, Exec]] = new EmitterBuilderFunctor[R, Exec]
@@ -285,7 +285,7 @@ object EmitterBuilder {
   @inline def ofRVNode[Env, E](create: Observer[E] => RVNode[Env]): EmitterBuilder.Sync[E, RVNode[Env]] = apply[E, RVNode[Env]](create)
 
   @inline def combine[T, R : Monoid : SubscriptionOwner, Exec <: Execution](builders: EmitterBuilderExec[T, R, Exec]*): EmitterBuilderExec[T, R, Exec] = combineAll(builders)
-  def combineAll[T, R : Monoid : SubscriptionOwner, Exec <: Execution](builders: IterableOnce[EmitterBuilderExec[T, R, Exec]]): EmitterBuilderExec[T, R, Exec] = new Custom[T, R, Exec](sink =>
+  def combineAll[T, R : Monoid : SubscriptionOwner, Exec <: Execution](builders: Iterable[EmitterBuilderExec[T, R, Exec]]): EmitterBuilderExec[T, R, Exec] = new Custom[T, R, Exec](sink =>
     Monoid[R].combineAll(builders.iterator.map(_ --> sink))
   )
 

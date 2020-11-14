@@ -81,7 +81,7 @@ object RModifier extends RModifierOps {
   @inline def apply[Env](modifier: RModifier[Env], modifier2: RModifier[Env], modifier3: RModifier[Env], modifier4: RModifier[Env], modifier5: RModifier[Env], modifier6: RModifier[Env], modifier7: RModifier[Env], modifiers: RModifier[Env]*): RModifier[Env] =
     CompositeModifier[Env](js.Array(modifier, modifier2, modifier3, modifier4, modifier5, modifier6, modifier7, CompositeModifier(modifiers)))
 
-  @inline def composite[Env](modifiers: IterableOnce[RModifier[Env]]): RModifier[Env] = CompositeModifier[Env](modifiers.toJSArray)
+  @inline def composite[Env](modifiers: Iterable[RModifier[Env]]): RModifier[Env] = CompositeModifier[Env](modifiers.toJSArray)
 
   @inline def delay[Env, T : Render[Env, ?]](modifier: => T): RModifier[Env] = AccessEnvModifier[Env](env => RModifier(modifier).provide(env))
 
@@ -97,7 +97,7 @@ object RModifier extends RModifierOps {
   @inline class ModifierMonoid[Env] extends Monoid[RModifier[Env]] {
     @inline def empty: RModifier[Env] = RModifier.empty
     @inline def combine(x: RModifier[Env], y: RModifier[Env]): RModifier[Env] = RModifier[Env](x, y)
-    @inline override def combineAll(x: IterableOnce[RModifier[Env]]): RModifier[Env] = RModifier.composite[Env](x)
+    // @inline override def combineAll(x: Iterable[RModifier[Env]]): RModifier[Env] = RModifier.composite[Env](x)
   }
 
   implicit object contravariant extends Contravariant[RModifier] {
