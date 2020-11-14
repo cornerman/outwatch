@@ -204,7 +204,7 @@ object EmitterBuilderExec {
 
   @inline implicit class AccessEnvironmentOperations[Env, O, R[-_] : AccessEnvironment, Exec <: Execution](val builder: EmitterBuilderExec[O, R[Env], Exec]) {
     @inline final def provide(env: Env): EmitterBuilderExec[O, R[Any], Exec] = builder.mapResult(r => AccessEnvironment[R].provide(r)(env))
-    @inline final def provideMap[REnv](map: REnv => Env): EmitterBuilderExec[O, R[REnv], Exec] = builder.mapResult(r => AccessEnvironment[R].provideMap(r)(map))
+    @inline final def provideSome[REnv](map: REnv => Env): EmitterBuilderExec[O, R[REnv], Exec] = builder.mapResult(r => AccessEnvironment[R].provideSome(r)(map))
   }
 
   @inline implicit class EventActions[O <: dom.Event, R](val builder: EmitterBuilder.Sync[O, R]) extends AnyVal {

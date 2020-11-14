@@ -20,7 +20,7 @@ sealed trait RModifier[-Env] {
   type Self[-R] <: RModifier[R]
 
   def provide(env: Env): Self[Any]
-  def provideMap[R](map: R => Env): Self[R]
+  def provideSome[R](map: R => Env): Self[R]
 
   def append[R](args: RModifier[R]*): Self[Env with R]
   def prepend[R](args: RModifier[R]*): Self[Env with R]
@@ -104,7 +104,7 @@ object RModifier extends RModifierOps {
   }
 
   implicit object contravariant extends Contravariant[RModifier] {
-    def contramap[A, B](fa: RModifier[A])(f: B => A): RModifier[B] = fa.provideMap(f)
+    def contramap[A, B](fa: RModifier[A])(f: B => A): RModifier[B] = fa.provideSome(f)
   }
 
   @inline implicit def subscriptionOwner[Env]: SubscriptionOwner[RModifier[Env]] = new ModifierSubscriptionOwner[Env]
@@ -148,7 +148,7 @@ sealed trait DefaultModifier[-Env] extends RModifier[Env] {
   final def prepend[R](args: RModifier[R]*): RModifier[Env with R] = RModifier(RModifier.composite(args), this)
 
   final def provide(env: Env): Modifier = ProvidedEnvModifier(this, env)
-  final def provideMap[R](map: R => Env): RModifier[R] = AccessEnvModifier[R](env => provide(map(env)))
+  final def provideSome[R](map: R => Env): RModifier[R] = AccessEnvModifier[R](env => provide(map(env)))
 }
 
 sealed trait StaticModifier extends DefaultModifier[Any]
@@ -209,7 +209,7 @@ sealed trait RVNode[-Env] extends RModifier[Env] {
   type Self[-R] <: RVNode[R]
 
   def provide(env: Env): Self[Any]
-  def provideMap[R](map: R => Env): Self[R]
+  def provideSome[R](map: R => Env): Self[R]
 
   def append[R](args: RModifier[R]*): Self[Env with R]
   def prepend[R](args: RModifier[R]*): Self[Env with R]
@@ -238,7 +238,7 @@ object VNode extends RVNodeOps
   type Self[-R] = AccessEnvVNode[R]
 
   def provide(env: Env): Self[Any] = copy(node = _ => node(env))
-  def provideMap[R](map: R => Env): Self[R] = copy(node = r => node(map(r)))
+  def provideSome[R](map: R => Env): Self[R] = copy(node = r => node(map(r)))
   def append[R](args: RModifier[R]*): Self[Env with R] = copy(node = env => node(env).append(RModifier.composite(args).provide(env)))
   def prepend[R](args: RModifier[R]*): Self[Env with R] = copy(node = env => node(env).prepend(RModifier.composite(args).provide(env)))
 }
@@ -247,7 +247,7 @@ object VNode extends RVNodeOps
   type Self[-R] = RThunkVNode[R]
 
   def provide(env: Env): Self[Any] = copy(baseNode = baseNode.provide(env), renderFn = () => renderFn().provide(env))
-  def provideMap[R](map: R => Env): Self[R] = copy(baseNode = baseNode.provideMap(map), renderFn = () => renderFn().provideMap(map))
+  def provideSome[R](map: R => Env): Self[R] = copy(baseNode = baseNode.provideSome(map), renderFn = () => renderFn().provideSome(map))
   def append[R](args: RModifier[R]*): Self[Env with R] = copy(baseNode = baseNode.append(args: _*))
   def prepend[R](args: RModifier[R]*): Self[Env with R] = copy(baseNode = baseNode.prepend(args: _*))
 }
@@ -256,7 +256,7 @@ object VNode extends RVNodeOps
   type Self[-R] = RBasicVNode[R]
 
   def provide(env: Env): Self[Any] = copy(modifiers = js.Array(CompositeModifier(modifiers).provide(env)))
-  def provideMap[R](map: R => Env): Self[R] = copy(modifiers = js.Array(CompositeModifier(modifiers).provideMap(map)))
+  def provideSome[R](map: R => Env): Self[R] = copy(modifiers = js.Array(CompositeModifier(modifiers).provideSome(map)))
   def append[R](args: RModifier[R]*): Self[Env with R] = copy(modifiers = appendSeq(modifiers, args))
   def prepend[R](args: RModifier[R]*): Self[Env with R] = copy(modifiers = prependSeq(modifiers, args))
 }

@@ -17,8 +17,9 @@ package object z {
   }
 
   implicit def accessEnvironment[Result]: AccessEnvironment[RIO[-?, Result]] = new AccessEnvironment[RIO[-?, Result]] {
-    def access[Env](f: Env => RIO[Any, Result]): RIO[Env, Result] = RIO.accessM(f)
-    def provide[Env](t: RIO[Env, Result])(env: Env): RIO[Any, Result] = t.provide(env)
+    @inline def access[Env](f: Env => RIO[Any, Result]): RIO[Env, Result] = RIO.accessM(f)
+    @inline def provide[Env](t: RIO[Env, Result])(env: Env): RIO[Any, Result] = t.provide(env)
+    @inline def provideSome[Env, R](t: RIO[Env, Result])(map: R => Env): RIO[R, Result] = t.provideSome(map)
   }
 
   @inline implicit class EmitterBuilderOpsAccessEnvironment[Env, O, Result[-_] : AccessEnvironment](val self: EmitterBuilder[O, Result[Env]]) {
