@@ -12,7 +12,7 @@ import scala.util.Success
 import cats.data.Kleisli
 import cats.effect.Effect
 
-trait Render[Env, -T] {
+trait Render[-Env, -T] {
   def render(value: T): RModifier[Env]
 }
 
