@@ -214,8 +214,8 @@ sealed trait RVNode[-Env] extends RModifier[Env] {
   @inline final def apply[R](args: RModifier[R]*): Self[Env with R] = append[R](args: _*)
 }
 sealed trait RVNodeOps {
-  @inline final def html(name: String): BasicVNode = RBasicVNodeNS(name, js.Array[Modifier](), VNodeNamespace.Html)
-  @inline final def svg(name: String): BasicVNode = RBasicVNodeNS(name, js.Array[Modifier](), VNodeNamespace.Svg)
+  @inline final def html(name: String): HtmlVNode = RBasicVNodeNS(name, js.Array[Modifier](), VNodeNamespace.Html)
+  @inline final def svg(name: String): SvgVNode = RBasicVNodeNS(name, js.Array[Modifier](), VNodeNamespace.Svg)
 }
 object RVNode extends RVNodeOps {
   @inline def access[Env](node: Env => VNode): RVNode[Env] = new AccessEnvVNode(node)

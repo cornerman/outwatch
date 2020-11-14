@@ -16,45 +16,34 @@ package object z {
     }
   }
 
-  @inline implicit class EmitterBuilderOpsModifier[Env, O, Exec <: EmitterBuilderExec.Execution](val self: EmitterBuilderExec[O, RModifier[Env], Exec]) extends AnyVal {
-    @inline def useZIO[R, T](effect: RIO[R, T]): EmitterBuilder[T, RModifier[ZModifierEnv with R with Env]] =
+  implicit def accessEnvironment[Result]: AccessEnvironment[RIO[-?, Result]] = new AccessEnvironment[RIO[-?, Result]] {
+    def access[Env](f: Env => RIO[Any, Result]): RIO[Env, Result] = RIO.accessM(f)
+    def provide[Env](t: RIO[Env, Result])(env: Env): RIO[Any, Result] = t.provide(env)
+  }
+
+  @inline implicit class EmitterBuilderOpsAccessEnvironment[Env, O, Result[-_] : AccessEnvironment](val self: EmitterBuilder[O, Result[Env]]) {
+    @inline def useZIO[R, T](effect: RIO[R, T]): EmitterBuilder[T, Result[ZModifierEnv with R with Env]] =
       concatMapZIO(_ => effect)
 
-    @inline def concatMapZIO[R, T](effect: O => RIO[R, T]): EmitterBuilder[T, RModifier[ZModifierEnv with R with Env]] =
+    @inline def concatMapZIO[R, T](effect: O => RIO[R, T]): EmitterBuilder[T, Result[ZModifierEnv with R with Env]] =
       EmitterBuilder.access { env =>
         implicit val runtime = Runtime(env, env.get[Platform])
         self.concatMapAsync(effect).provide(env)
       }
 
-    @inline def foreachZIO[R](action: O => RIO[R, Unit]): RModifier[ZModifierEnv with R with Env] = concatMapZIO(action).discard
-    @inline def doZIO[R](action: RIO[R, Unit]): RModifier[ZModifierEnv with R with Env] = foreachZIO(_ => action)
+    @inline def foreachZIO[R](action: O => RIO[R, Unit]): Result[ZModifierEnv with R with Env] = concatMapZIO(action).discard
+    @inline def doZIO[R](action: RIO[R, Unit]): Result[ZModifierEnv with R with Env] = foreachZIO(_ => action)
   }
 
-  @inline implicit class EmitterBuilderOpsRIO[Env, O, Result, Exec <: EmitterBuilderExec.Execution](val self: EmitterBuilderExec[O, RIO[Env, Result], Exec]) extends AnyVal {
-    @inline def useZIO[R, T](effect: RIO[R, T]): EmitterBuilder[T, RIO[ZModifierEnv with R with Env, Result]] =
-      concatMapZIO(_ => effect)
-
-    @inline def concatMapZIO[R, T](effect: O => RIO[R, T]): EmitterBuilder[T, RIO[ZModifierEnv with R with Env, Result]] =
-      ???
-      // EmitterBuilder.access { env =>
-      //   implicit val runtime = Runtime(env, env.get[Platform])
-      //   self.concatMapAsync(effect).provide(env)
-      // }
-
-    @inline def foreachZIO[R](action: O => RIO[R, Unit]): RIO[ZModifierEnv with R with Env, Result] = concatMapZIO(action).discard
-    @inline def doZIO[R](action: RIO[R, Unit]): RIO[ZModifierEnv with R with Env, Result] = foreachZIO(_ => action)
-  }
-
-  @inline implicit class EmitterBuilderOps[O, Result, Exec <: EmitterBuilderExec.Execution](val self: EmitterBuilderExec[O, Result, Exec]) extends AnyVal {
+  @inline implicit class EmitterBuilderOps[O, Result](val self: EmitterBuilder[O, Result]) extends AnyVal {
     @inline def useZIO[R, T](effect: RIO[R, T]): EmitterBuilder[T, RIO[ZModifierEnv with R, Result]] =
       concatMapZIO(_ => effect)
 
     @inline def concatMapZIO[R, T](effect: O => RIO[R, T]): EmitterBuilder[T, RIO[ZModifierEnv with R, Result]] =
-      ???
-      // EmitterBuilder.access { env =>
-      //   implicit val runtime = Runtime(env, env.get[Platform])
-      //   self.concatMapAsync(effect).provide(env)
-      // }
+      EmitterBuilder.access[ZModifierEnv with R][T, RIO[-?, Result], EmitterBuilderExec.Execution] { env =>
+        implicit val runtime = Runtime(env, env.get[Platform])
+        self.concatMapAsync(effect).mapResult(RIO.succeed(_))
+      }
 
     @inline def foreachZIO[R](action: O => RIO[R, Unit]): RIO[ZModifierEnv with R, Result] = concatMapZIO(action).discard
     @inline def doZIO[R](action: RIO[R, Unit]): RIO[ZModifierEnv with R, Result] = foreachZIO(_ => action)
