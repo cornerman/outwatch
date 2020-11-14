@@ -86,7 +86,10 @@ object RModifier extends RModifierOps {
   @inline def delay[Env, T : Render[Env, ?]](modifier: => T): RModifier[Env] = AccessEnvModifier[Env](env => RModifier(modifier).provide(env))
 
   @inline def access[Env](modifier: Env => Modifier): RModifier[Env] = AccessEnvModifier(modifier)
-  @inline def accessR[Env, R](modifier: Env => RModifier[R]): RModifier[Env with R] = access(env => modifier(env).provide(env))
+  @inline def accessM[Env] = new PartiallyAppliedAccessM[Env]
+  @inline class PartiallyAppliedAccessM[Env] {
+    @inline def apply[R](modifier: Env => RModifier[R]): RModifier[Env with R] = access(env => modifier(env).provide(env))
+  }
 
   implicit object monoidk extends MonoidK[RModifier] {
     @inline def empty[Env]: RModifier[Env] = RModifier.empty
@@ -219,7 +222,10 @@ sealed trait RVNodeOps {
 }
 object RVNode extends RVNodeOps {
   @inline def access[Env](node: Env => VNode): RVNode[Env] = new AccessEnvVNode(node)
-  @inline def accessR[Env, R](node: Env => RVNode[R]): RVNode[Env with R] = access(env => node(env).provide(env))
+  @inline def accessM[Env] = new PartiallyAppliedAccessM[Env]
+  @inline class PartiallyAppliedAccessM[Env] {
+    @inline def apply[R](node: Env => RVNode[R]): RVNode[Env with R] = access(env => node(env).provide(env))
+  }
 
   @inline implicit def subscriptionOwner[Env]: SubscriptionOwner[RVNode[Env]] = new VNodeSubscriptionOwner[Env]
   @inline class VNodeSubscriptionOwner[Env] extends SubscriptionOwner[RVNode[Env]] {

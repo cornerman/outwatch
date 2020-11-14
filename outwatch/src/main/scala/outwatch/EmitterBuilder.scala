@@ -297,11 +297,11 @@ object EmitterBuilder {
   @inline def ofNode[E](create: Observer[E] => VNode): EmitterBuilder.Sync[E, VNode] = ofVNode[E](create)
 
   @inline def access[Env] = new PartiallyAppliedAccess[Env]
-  @inline def accessR[Env, R] = new PartiallyAppliedAccessR[Env, R]
+  @inline def accessM[Env] = new PartiallyAppliedAccessM[Env]
   @inline class PartiallyAppliedAccess[Env] {
     @inline def apply[O, T[-_] : AccessEnvironment, Exec <: Execution](emitter: Env => EmitterBuilderExec[O, T[Any], Exec]): EmitterBuilderExec[O, T[Env], Exec] = new Access[Env, O, T, Exec](emitter)
   }
-  @inline class PartiallyAppliedAccessR[Env, R] {
-    @inline def apply[O, T[-_] : AccessEnvironment, Exec <: Execution](emitter: Env => EmitterBuilderExec[O, T[R], Exec]): EmitterBuilderExec[O, T[Env with R], Exec] = access(env => emitter(env).provide(env))
+  @inline class PartiallyAppliedAccessM[Env] {
+    @inline def apply[R, O, T[-_] : AccessEnvironment, Exec <: Execution](emitter: Env => EmitterBuilderExec[O, T[R], Exec]): EmitterBuilderExec[O, T[Env with R], Exec] = access(env => emitter(env).provide(env))
   }
 }
