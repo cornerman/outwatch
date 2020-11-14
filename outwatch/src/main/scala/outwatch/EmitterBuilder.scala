@@ -190,16 +190,16 @@ object EmitterBuilderExec {
     @inline def map[A, B](fa: EmitterBuilderExec[A, R, Exec])(f: A => B): EmitterBuilderExec[B, R, Exec] = fa.map(f)
   }
 
-  @inline implicit class ModifierOperations[Env, O, Exec <: Execution](val builder: EmitterBuilderExec[O, RModifier[Env], Exec]) extends AnyVal {
-    @inline def handled(f: Observable[O] => RModifier[Env]): SyncIO[RModifier[Env]] = handledF[SyncIO](f)
-    @inline def handledF[F[_] : SyncCats](f: Observable[O] => RModifier[Env]): F[RModifier[Env]] = handledWithF[F]((r, o) => RModifier[Env](r, f(o)))
-    @inline def handledWith(f: (RModifier[Env], Observable[O]) => RModifier[Env]): SyncIO[RModifier[Env]] = handledWithF[SyncIO](f)
-    @inline def handledWithF[F[_] : SyncCats](f: (RModifier[Env], Observable[O]) => RModifier[Env]): F[RModifier[Env]] = Functor[F].map(handler.Handler.createF[F, O]) { handler =>
+  @inline implicit class ModifierOperations[Env, O, Exec <: Execution](val builder: EmitterBuilderExec[O, ModifierM[Env], Exec]) extends AnyVal {
+    @inline def handled(f: Observable[O] => ModifierM[Env]): SyncIO[ModifierM[Env]] = handledF[SyncIO](f)
+    @inline def handledF[F[_] : SyncCats](f: Observable[O] => ModifierM[Env]): F[ModifierM[Env]] = handledWithF[F]((r, o) => ModifierM[Env](r, f(o)))
+    @inline def handledWith(f: (ModifierM[Env], Observable[O]) => ModifierM[Env]): SyncIO[ModifierM[Env]] = handledWithF[SyncIO](f)
+    @inline def handledWithF[F[_] : SyncCats](f: (ModifierM[Env], Observable[O]) => ModifierM[Env]): F[ModifierM[Env]] = Functor[F].map(handler.Handler.createF[F, O]) { handler =>
       f(builder.forwardTo(handler), handler)
     }
 
-    @inline def withLatestEmitter[T](emitter: EmitterBuilder[T, RModifier[Env]]): EmitterBuilderExec[(O,T), RModifier[Env], Exec] = combineWithLatestEmitter(builder, emitter)
-    @inline def useLatestEmitter[T](emitter: EmitterBuilder[T, RModifier[Env]]): EmitterBuilderExec[T, RModifier[Env], Exec] = withLatestEmitter(emitter).map(_._2)
+    @inline def withLatestEmitter[T](emitter: EmitterBuilder[T, ModifierM[Env]]): EmitterBuilderExec[(O,T), ModifierM[Env], Exec] = combineWithLatestEmitter(builder, emitter)
+    @inline def useLatestEmitter[T](emitter: EmitterBuilder[T, ModifierM[Env]]): EmitterBuilderExec[T, ModifierM[Env], Exec] = withLatestEmitter(emitter).map(_._2)
   }
 
   @inline implicit class AccessEnvironmentOperations[Env, O, R[-_] : AccessEnvironment, Exec <: Execution](val builder: EmitterBuilderExec[O, R[Env], Exec]) {
@@ -239,13 +239,13 @@ object EmitterBuilderExec {
     @inline def asSvg: EmitterBuilderExec[(dom.svg.Element, dom.svg.Element), R, Exec] = builder.asInstanceOf[EmitterBuilderExec[(dom.svg.Element, dom.svg.Element), R, Exec]]
   }
 
-  @noinline private def combineWithLatestEmitter[Env, O, T, Exec <: Execution](sourceEmitter: EmitterBuilderExec[O, RModifier[Env], Exec], latestEmitter: EmitterBuilder[T, RModifier[Env]]): EmitterBuilderExec[(O, T), RModifier[Env], Exec] =
-    new Custom[(O, T), RModifier[Env], Exec]({ sink =>
+  @noinline private def combineWithLatestEmitter[Env, O, T, Exec <: Execution](sourceEmitter: EmitterBuilderExec[O, ModifierM[Env], Exec], latestEmitter: EmitterBuilder[T, ModifierM[Env]]): EmitterBuilderExec[(O, T), ModifierM[Env], Exec] =
+    new Custom[(O, T), ModifierM[Env], Exec]({ sink =>
       import scala.scalajs.js
 
-      RModifier.delay {
+      ModifierM.delay {
         var lastValue: Option[T] = None
-        RModifier(
+        ModifierM(
           latestEmitter.forwardTo(Observer.create[T](v => lastValue = Some(v), sink.onError)),
           sourceEmitter.forwardTo(Observer.create[O](
             { o =>
@@ -279,10 +279,10 @@ object EmitterBuilder {
   }
 
   @inline def apply[E, R : SubscriptionOwner](create: Observer[E] => R): EmitterBuilder.Sync[E, R] = new Custom[E, R, SyncExecution](sink => create(sink))
-  @inline def ofModifier[E](create: Observer[E] => Modifier): EmitterBuilder.Sync[E, Modifier] = ofRModifier[Any, E](create)
-  @inline def ofVNode[E](create: Observer[E] => VNode): EmitterBuilder.Sync[E, VNode] = ofRVNode[Any, E](create)
-  @inline def ofRModifier[Env, E](create: Observer[E] => RModifier[Env]): EmitterBuilder.Sync[E, RModifier[Env]] = apply[E, RModifier[Env]](create)
-  @inline def ofRVNode[Env, E](create: Observer[E] => RVNode[Env]): EmitterBuilder.Sync[E, RVNode[Env]] = apply[E, RVNode[Env]](create)
+  @inline def ofModifier[E](create: Observer[E] => Modifier): EmitterBuilder.Sync[E, Modifier] = ofModifierM[Any, E](create)
+  @inline def ofVNode[E](create: Observer[E] => VNode): EmitterBuilder.Sync[E, VNode] = ofVNodeM[Any, E](create)
+  @inline def ofModifierM[Env, E](create: Observer[E] => ModifierM[Env]): EmitterBuilder.Sync[E, ModifierM[Env]] = apply[E, ModifierM[Env]](create)
+  @inline def ofVNodeM[Env, E](create: Observer[E] => VNodeM[Env]): EmitterBuilder.Sync[E, VNodeM[Env]] = apply[E, VNodeM[Env]](create)
 
   @inline def combine[T, R : Monoid : SubscriptionOwner, Exec <: Execution](builders: EmitterBuilderExec[T, R, Exec]*): EmitterBuilderExec[T, R, Exec] = combineAll(builders)
   def combineAll[T, R : Monoid : SubscriptionOwner, Exec <: Execution](builders: Iterable[EmitterBuilderExec[T, R, Exec]]): EmitterBuilderExec[T, R, Exec] = new Custom[T, R, Exec](sink =>

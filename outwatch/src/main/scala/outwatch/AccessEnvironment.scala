@@ -8,14 +8,14 @@ trait AccessEnvironment[T[-_]] {
 object AccessEnvironment {
   @inline def apply[T[-_]](implicit env: AccessEnvironment[T]): AccessEnvironment[T] = env
 
-  implicit object modifier extends AccessEnvironment[RModifier] {
-    @inline def access[Env](f: Env => RModifier[Any]): RModifier[Env] = RModifier.access(f)
-    @inline def provide[Env](t: RModifier[Env])(env: Env): RModifier[Any] = t.provide(env)
-    @inline def provideSome[Env, R](t: RModifier[Env])(map: R => Env): RModifier[R] = t.provideSome(map)
+  implicit object modifier extends AccessEnvironment[ModifierM] {
+    @inline def access[Env](f: Env => ModifierM[Any]): ModifierM[Env] = ModifierM.access(f)
+    @inline def provide[Env](t: ModifierM[Env])(env: Env): ModifierM[Any] = t.provide(env)
+    @inline def provideSome[Env, R](t: ModifierM[Env])(map: R => Env): ModifierM[R] = t.provideSome(map)
   }
-  implicit object vnode extends AccessEnvironment[RVNode] {
-    @inline def access[Env](f: Env => RVNode[Any]): RVNode[Env] = RVNode.access(f)
-    @inline def provide[Env](t: RVNode[Env])(env: Env): RVNode[Any] = t.provide(env)
-    @inline def provideSome[Env, R](t: RVNode[Env])(map: R => Env): RVNode[R] = t.provideSome(map)
+  implicit object vnode extends AccessEnvironment[VNodeM] {
+    @inline def access[Env](f: Env => VNodeM[Any]): VNodeM[Env] = VNodeM.access(f)
+    @inline def provide[Env](t: VNodeM[Env])(env: Env): VNodeM[Any] = t.provide(env)
+    @inline def provideSome[Env, R](t: VNodeM[Env])(map: R => Env): VNodeM[R] = t.provideSome(map)
   }
 }

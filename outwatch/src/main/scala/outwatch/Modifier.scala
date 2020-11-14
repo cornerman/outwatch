@@ -16,19 +16,14 @@ import scala.scalajs.js
 import scala.scalajs.js.JSConverters._
 import org.scalajs.dom
 
-sealed trait RModifier[-Env] {
-  type Self[-R] <: RModifier[R]
-
-  def provide(env: Env): Self[Any]
-  def provideSome[R](map: R => Env): Self[R]
-
-  def append[R](args: RModifier[R]*): Self[Env with R]
-  def prepend[R](args: RModifier[R]*): Self[Env with R]
+sealed trait ModifierM[-Env] {
+  def append[R](args: ModifierM[R]*): ModifierM[Env with R]
+  def prepend[R](args: ModifierM[R]*): ModifierM[Env with R]
+  def provide(env: Env): ModifierM[Any]
+  def provideSome[R](map: R => Env): ModifierM[R]
 }
 
-sealed trait RModifierOps {
-  type WithSelf[-Env, Mod[-Env] <: RModifier[Env]] = Mod[Env] { type Self[-R] = Mod[R] }
-
+sealed trait ModifierMOps {
   @inline final def empty: Modifier = EmptyModifier
 
   @inline final def apply(): Modifier = empty
@@ -59,96 +54,92 @@ sealed trait RModifierOps {
   }
 }
 
-object RModifier extends RModifierOps {
+object ModifierM extends ModifierMOps {
 
-  @inline def apply[Env, T : Render[Env, ?]](t: T): RModifier[Env] = Render[Env, T].render(t)
+  @inline def apply[Env, T : Render[Env, ?]](t: T): ModifierM[Env] = Render[Env, T].render(t)
 
-  @inline def apply[Env](modifier: RModifier[Env], modifier2: RModifier[Env]): RModifier[Env] =
+  @inline def apply[Env](modifier: ModifierM[Env], modifier2: ModifierM[Env]): ModifierM[Env] =
     CompositeModifier[Env](js.Array(modifier, modifier2))
 
-  @inline def apply[Env](modifier: RModifier[Env], modifier2: RModifier[Env], modifier3: RModifier[Env]): RModifier[Env] =
+  @inline def apply[Env](modifier: ModifierM[Env], modifier2: ModifierM[Env], modifier3: ModifierM[Env]): ModifierM[Env] =
     CompositeModifier[Env](js.Array(modifier, modifier2, modifier3))
 
-  @inline def apply[Env](modifier: RModifier[Env], modifier2: RModifier[Env], modifier3: RModifier[Env], modifier4: RModifier[Env]): RModifier[Env] =
+  @inline def apply[Env](modifier: ModifierM[Env], modifier2: ModifierM[Env], modifier3: ModifierM[Env], modifier4: ModifierM[Env]): ModifierM[Env] =
     CompositeModifier[Env](js.Array(modifier, modifier2, modifier3, modifier4))
 
-  @inline def apply[Env](modifier: RModifier[Env], modifier2: RModifier[Env], modifier3: RModifier[Env], modifier4: RModifier[Env], modifier5: RModifier[Env]): RModifier[Env] =
+  @inline def apply[Env](modifier: ModifierM[Env], modifier2: ModifierM[Env], modifier3: ModifierM[Env], modifier4: ModifierM[Env], modifier5: ModifierM[Env]): ModifierM[Env] =
     CompositeModifier[Env](js.Array(modifier, modifier2, modifier3, modifier4, modifier5))
 
-  @inline def apply[Env](modifier: RModifier[Env], modifier2: RModifier[Env], modifier3: RModifier[Env], modifier4: RModifier[Env], modifier5: RModifier[Env], modifier6: RModifier[Env]): RModifier[Env] =
+  @inline def apply[Env](modifier: ModifierM[Env], modifier2: ModifierM[Env], modifier3: ModifierM[Env], modifier4: ModifierM[Env], modifier5: ModifierM[Env], modifier6: ModifierM[Env]): ModifierM[Env] =
     CompositeModifier[Env](js.Array(modifier, modifier2, modifier3, modifier4, modifier5, modifier6))
 
-  @inline def apply[Env](modifier: RModifier[Env], modifier2: RModifier[Env], modifier3: RModifier[Env], modifier4: RModifier[Env], modifier5: RModifier[Env], modifier6: RModifier[Env], modifier7: RModifier[Env], modifiers: RModifier[Env]*): RModifier[Env] =
+  @inline def apply[Env](modifier: ModifierM[Env], modifier2: ModifierM[Env], modifier3: ModifierM[Env], modifier4: ModifierM[Env], modifier5: ModifierM[Env], modifier6: ModifierM[Env], modifier7: ModifierM[Env], modifiers: ModifierM[Env]*): ModifierM[Env] =
     CompositeModifier[Env](js.Array(modifier, modifier2, modifier3, modifier4, modifier5, modifier6, modifier7, CompositeModifier(modifiers)))
 
-  @inline def composite[Env](modifiers: Iterable[RModifier[Env]]): RModifier[Env] = CompositeModifier[Env](modifiers.toJSArray)
+  @inline def composite[Env](modifiers: Iterable[ModifierM[Env]]): ModifierM[Env] = CompositeModifier[Env](modifiers.toJSArray)
 
-  @inline def delay[Env, T : Render[Env, ?]](modifier: => T): RModifier[Env] = AccessEnvModifier[Env](env => RModifier(modifier).provide(env))
+  @inline def delay[Env, T : Render[Env, ?]](modifier: => T): ModifierM[Env] = AccessEnvModifier[Env](env => ModifierM(modifier).provide(env))
 
-  @inline def access[Env](modifier: Env => Modifier): RModifier[Env] = AccessEnvModifier(modifier)
-  @inline def accessM[Env] = new PartiallyAppliedAccessM[Env]
-  @inline class PartiallyAppliedAccessM[Env] {
-    @inline def apply[R](modifier: Env => RModifier[R]): RModifier[Env with R] = access(env => modifier(env).provide(env))
+  @inline def access[Env] = new PartiallyAppliedAccess[Env]
+  @inline class PartiallyAppliedAccess[Env] {
+    @inline def apply[R](modifier: Env => ModifierM[R]): ModifierM[Env with R] = access(env => modifier(env).provide(env))
   }
 
-  implicit object monoidk extends MonoidK[RModifier] {
-    @inline def empty[Env]: RModifier[Env] = RModifier.empty
-    @inline def combineK[Env](x: RModifier[Env], y: RModifier[Env]): RModifier[Env] = RModifier[Env](x, y)
+  implicit object monoidk extends MonoidK[ModifierM] {
+    @inline def empty[Env]: ModifierM[Env] = ModifierM.empty
+    @inline def combineK[Env](x: ModifierM[Env], y: ModifierM[Env]): ModifierM[Env] = ModifierM[Env](x, y)
   }
 
-  @inline implicit def monoid[Env]: Monoid[RModifier[Env]] = new ModifierMonoid[Env]
-  @inline class ModifierMonoid[Env] extends Monoid[RModifier[Env]] {
-    @inline def empty: RModifier[Env] = RModifier.empty
-    @inline def combine(x: RModifier[Env], y: RModifier[Env]): RModifier[Env] = RModifier[Env](x, y)
-    // @inline override def combineAll(x: Iterable[RModifier[Env]]): RModifier[Env] = RModifier.composite[Env](x)
+  @inline implicit def monoid[Env]: Monoid[ModifierM[Env]] = new ModifierMonoid[Env]
+  @inline class ModifierMonoid[Env] extends Monoid[ModifierM[Env]] {
+    @inline def empty: ModifierM[Env] = ModifierM.empty
+    @inline def combine(x: ModifierM[Env], y: ModifierM[Env]): ModifierM[Env] = ModifierM[Env](x, y)
+    // @inline override def combineAll(x: Iterable[ModifierM[Env]]): ModifierM[Env] = ModifierM.composite[Env](x)
   }
 
-  implicit object contravariant extends Contravariant[RModifier] {
-    def contramap[A, B](fa: RModifier[A])(f: B => A): RModifier[B] = fa.provideSome(f)
+  implicit object contravariant extends Contravariant[ModifierM] {
+    def contramap[A, B](fa: ModifierM[A])(f: B => A): ModifierM[B] = fa.provideSome(f)
   }
 
-  @inline implicit def subscriptionOwner[Env]: SubscriptionOwner[RModifier[Env]] = new ModifierSubscriptionOwner[Env]
-  @inline class ModifierSubscriptionOwner[Env] extends SubscriptionOwner[RModifier[Env]] {
-    @inline def own(owner: RModifier[Env])(subscription: () => Cancelable): RModifier[Env] = RModifier(owner, Modifier.managedFunction(subscription))
+  @inline implicit def subscriptionOwner[Env]: SubscriptionOwner[ModifierM[Env]] = new ModifierSubscriptionOwner[Env]
+  @inline class ModifierSubscriptionOwner[Env] extends SubscriptionOwner[ModifierM[Env]] {
+    @inline def own(owner: ModifierM[Env])(subscription: () => Cancelable): ModifierM[Env] = ModifierM(owner, Modifier.managedFunction(subscription))
   }
 
-  @inline implicit def renderToModifier[Env, T : Render[Env, ?]](value: T): RModifier[Env] = Render[Env, T].render(value)
+  @inline implicit def renderToModifier[Env, T : Render[Env, ?]](value: T): ModifierM[Env] = Render[Env, T].render(value)
 }
 
-object Modifier extends RModifierOps {
+object Modifier extends ModifierMOps {
   @inline def apply[T : Render[Any, ?]](t: T): Modifier = Render[Any, T].render(t)
 
   @inline def apply(modifier: Modifier, modifier2: Modifier): Modifier =
-    RModifier(modifier, modifier2)
+    ModifierM(modifier, modifier2)
 
   @inline def apply(modifier: Modifier, modifier2: Modifier, modifier3: Modifier): Modifier =
-    RModifier(modifier, modifier2, modifier3)
+    ModifierM(modifier, modifier2, modifier3)
 
   @inline def apply(modifier: Modifier, modifier2: Modifier, modifier3: Modifier, modifier4: Modifier): Modifier =
-    RModifier(modifier, modifier2, modifier3, modifier4)
+    ModifierM(modifier, modifier2, modifier3, modifier4)
 
   @inline def apply(modifier: Modifier, modifier2: Modifier, modifier3: Modifier, modifier4: Modifier, modifier5: Modifier): Modifier =
-    RModifier(modifier, modifier2, modifier3, modifier4, modifier5)
+    ModifierM(modifier, modifier2, modifier3, modifier4, modifier5)
 
   @inline def apply(modifier: Modifier, modifier2: Modifier, modifier3: Modifier, modifier4: Modifier, modifier5: Modifier, modifier6: Modifier): Modifier =
-    RModifier(modifier, modifier2, modifier3, modifier4, modifier5, modifier6)
+    ModifierM(modifier, modifier2, modifier3, modifier4, modifier5, modifier6)
 
   @inline def apply(modifier: Modifier, modifier2: Modifier, modifier3: Modifier, modifier4: Modifier, modifier5: Modifier, modifier6: Modifier, modifier7: Modifier, modifiers: Modifier*): Modifier =
-    RModifier(modifier, modifier2, modifier3, modifier4, modifier5, modifier6, modifier7, modifiers: _*)
+    ModifierM(modifier, modifier2, modifier3, modifier4, modifier5, modifier6, modifier7, modifiers: _*)
 
-  @inline def composite(modifiers: Iterable[Modifier]): Modifier = RModifier.composite(modifiers)
+  @inline def composite(modifiers: Iterable[Modifier]): Modifier = ModifierM.composite(modifiers)
 
-  @inline def delay[T : Render[Any, ?]](modifier: => T): Modifier = RModifier.delay(modifier)
+  @inline def delay[T : Render[Any, ?]](modifier: => T): Modifier = ModifierM.delay(modifier)
 }
 
-sealed trait DefaultModifier[-Env] extends RModifier[Env] {
-  type Self[-R] = RModifier[R]
-
-  final def append[R](args: RModifier[R]*): RModifier[Env with R] = RModifier(this, RModifier.composite(args))
-  final def prepend[R](args: RModifier[R]*): RModifier[Env with R] = RModifier(RModifier.composite(args), this)
-
+sealed trait DefaultModifier[-Env] extends ModifierM[Env] {
+  final def append[R](args: ModifierM[R]*): ModifierM[Env with R] = ModifierM(this, ModifierM.composite(args))
+  final def prepend[R](args: ModifierM[R]*): ModifierM[Env with R] = ModifierM(ModifierM.composite(args), this)
   final def provide(env: Env): Modifier = ProvidedEnvModifier(this, env)
-  final def provideSome[R](map: R => Env): RModifier[R] = AccessEnvModifier[R](env => provide(map(env)))
+  final def provideSome[R](map: R => Env): ModifierM[R] = AccessEnvModifier[R](env => provide(map(env)))
 }
 
 sealed trait StaticModifier extends DefaultModifier[Any]
@@ -200,71 +191,63 @@ final case class NextModifier(modifier: StaticModifier) extends StaticModifier
 case object EmptyModifier extends DefaultModifier[Any]
 final case class CancelableModifier(subscription: () => Cancelable) extends DefaultModifier[Any]
 final case class StringVNode(text: String) extends DefaultModifier[Any]
-final case class ProvidedEnvModifier[Env](modifier: RModifier[Env], env: Env) extends DefaultModifier[Any]
+final case class ProvidedEnvModifier[Env](modifier: ModifierM[Env], env: Env) extends DefaultModifier[Any]
 final case class AccessEnvModifier[-Env](modifier: Env => Modifier) extends DefaultModifier[Env]
-final case class CompositeModifier[-Env](modifiers: Iterable[RModifier[Env]]) extends DefaultModifier[Env]
-final case class StreamModifier[-Env](subscription: Observer[RModifier[Env]] => Cancelable) extends DefaultModifier[Env]
+final case class CompositeModifier[-Env](modifiers: Iterable[ModifierM[Env]]) extends DefaultModifier[Env]
+final case class StreamModifier[-Env](subscription: Observer[ModifierM[Env]] => Cancelable) extends DefaultModifier[Env]
 
-sealed trait RVNode[-Env] extends RModifier[Env] {
-  type Self[-R] <: RVNode[R]
-
-  def provide(env: Env): Self[Any]
-  def provideSome[R](map: R => Env): Self[R]
-
-  def append[R](args: RModifier[R]*): Self[Env with R]
-  def prepend[R](args: RModifier[R]*): Self[Env with R]
-
-  @inline final def apply[R](args: RModifier[R]*): Self[Env with R] = append[R](args: _*)
+sealed trait VNodeM[-Env] extends ModifierM[Env] {
+  def apply[R](args: ModifierM[R]*): VNodeM[Env with R]
+  def append[R](args: ModifierM[R]*): VNodeM[Env with R]
+  def prepend[R](args: ModifierM[R]*): VNodeM[Env with R]
+  def provide(env: Env): VNodeM[Any]
+  def provideSome[R](map: R => Env): VNodeM[R]
 }
-sealed trait RVNodeOps {
-  @inline final def html(name: String): HtmlVNode = RBasicVNodeNS(name, js.Array[Modifier](), VNodeNamespace.Html)
-  @inline final def svg(name: String): SvgVNode = RBasicVNodeNS(name, js.Array[Modifier](), VNodeNamespace.Svg)
+sealed trait VNodeMOps {
+  @inline final def html(name: String): HtmlVNode = BasicNamespaceVNodeM(name, js.Array[Modifier](), VNodeNamespace.Html)
+  @inline final def svg(name: String): SvgVNode = BasicNamespaceVNodeM(name, js.Array[Modifier](), VNodeNamespace.Svg)
 }
-object RVNode extends RVNodeOps {
-  @inline def access[Env](node: Env => VNode): RVNode[Env] = new AccessEnvVNode(node)
-  @inline def accessM[Env] = new PartiallyAppliedAccessM[Env]
-  @inline class PartiallyAppliedAccessM[Env] {
-    @inline def apply[R](node: Env => RVNode[R]): RVNode[Env with R] = access(env => node(env).provide(env))
+object VNodeM extends VNodeMOps {
+  @inline def access[Env] = new PartiallyAppliedAccess[Env]
+  @inline class PartiallyAppliedAccess[Env] {
+    @inline def apply[R](node: Env => VNodeM[R]): VNodeM[Env with R] = access(env => node(env).provide(env))
   }
 
-  @inline implicit def subscriptionOwner[Env]: SubscriptionOwner[RVNode[Env]] = new VNodeSubscriptionOwner[Env]
-  @inline class VNodeSubscriptionOwner[Env] extends SubscriptionOwner[RVNode[Env]] {
-    @inline def own(owner: RVNode[Env])(subscription: () => Cancelable): RVNode[Env] = owner.append(Modifier.managedFunction(subscription))
+  @inline implicit def subscriptionOwner[Env]: SubscriptionOwner[VNodeM[Env]] = new VNodeSubscriptionOwner[Env]
+  @inline class VNodeSubscriptionOwner[Env] extends SubscriptionOwner[VNodeM[Env]] {
+    @inline def own(owner: VNodeM[Env])(subscription: () => Cancelable): VNodeM[Env] = owner.append(Modifier.managedFunction(subscription))
   }
 }
-object VNode extends RVNodeOps
+object VNode extends VNodeMOps
 
-@inline final case class AccessEnvVNode[-Env](node: Env => VNode) extends RVNode[Env] {
-  type Self[-R] = AccessEnvVNode[R]
-
-  def provide(env: Env): Self[Any] = copy(node = _ => node(env))
-  def provideSome[R](map: R => Env): Self[R] = copy(node = r => node(map(r)))
-  def append[R](args: RModifier[R]*): Self[Env with R] = copy(node = env => node(env).append(RModifier.composite(args).provide(env)))
-  def prepend[R](args: RModifier[R]*): Self[Env with R] = copy(node = env => node(env).prepend(RModifier.composite(args).provide(env)))
+@inline final case class AccessEnvVNodeM[-Env](node: Env => VNode) extends VNodeM[Env] {
+  def provide(env: Env): AccessEnvVNodeM[Any] = copy(node = _ => node(env))
+  def provideSome[R](map: R => Env): AccessEnvVNodeM[R] = copy(node = r => node(map(r)))
+  def apply[R](args: ModifierM[R]*): AccessEnvVNodeM[Env with R] = copy(node = env => node(env).apply(ModifierM.composite(args).provide(env)))
+  def append[R](args: ModifierM[R]*): AccessEnvVNodeM[Env with R] = copy(node = env => node(env).append(ModifierM.composite(args).provide(env)))
+  def prepend[R](args: ModifierM[R]*): AccessEnvVNodeM[Env with R] = copy(node = env => node(env).prepend(ModifierM.composite(args).provide(env)))
 }
 
-@inline final case class RThunkVNode[-Env](baseNode: RBasicVNode[Env], key: Key.Value, condition: VNodeThunkCondition, renderFn: () => RModifier[Env]) extends RVNode[Env] {
-  type Self[-R] = RThunkVNode[R]
-
-  def provide(env: Env): Self[Any] = copy(baseNode = baseNode.provide(env), renderFn = () => renderFn().provide(env))
-  def provideSome[R](map: R => Env): Self[R] = copy(baseNode = baseNode.provideSome(map), renderFn = () => renderFn().provideSome(map))
-  def append[R](args: RModifier[R]*): Self[Env with R] = copy(baseNode = baseNode.append(args: _*))
-  def prepend[R](args: RModifier[R]*): Self[Env with R] = copy(baseNode = baseNode.prepend(args: _*))
+@inline final case class ThunkVNodeM[-Env](baseNode: BasicVNodeM[Env], key: Key.Value, condition: VNodeThunkCondition, renderFn: () => ModifierM[Env]) extends VNodeM[Env] {
+  def provide(env: Env): ThunkVNodeM[Any] = copy(baseNode = baseNode.provide(env), renderFn = () => renderFn().provide(env))
+  def provideSome[R](map: R => Env): ThunkVNodeM[R] = copy(baseNode = baseNode.provideSome(map), renderFn = () => renderFn().provideSome(map))
+  def apply[R](args: ModifierM[R]*): VNodeM[Env with R] = copy(baseNode = baseNode.apply(args: _*))
+  def append[R](args: ModifierM[R]*): ThunkVNodeM[Env with R] = copy(baseNode = baseNode.append(args: _*))
+  def prepend[R](args: ModifierM[R]*): ThunkVNodeM[Env with R] = copy(baseNode = baseNode.prepend(args: _*))
 }
 
-@inline final case class RBasicVNodeNS[+N <: VNodeNamespace, -Env](nodeType: String, modifiers: js.Array[_ <: RModifier[Env]], namespace: N) extends RVNode[Env] {
-  type Self[-R] = RBasicVNode[R]
-
-  def provide(env: Env): Self[Any] = copy(modifiers = js.Array(CompositeModifier(modifiers).provide(env)))
-  def provideSome[R](map: R => Env): Self[R] = copy(modifiers = js.Array(CompositeModifier(modifiers).provideSome(map)))
-  def append[R](args: RModifier[R]*): Self[Env with R] = copy(modifiers = appendSeq(modifiers, args))
-  def prepend[R](args: RModifier[R]*): Self[Env with R] = copy(modifiers = prependSeq(modifiers, args))
+@inline final case class BasicNamespaceVNodeM[+N <: VNodeNamespace, -Env](nodeType: String, modifiers: js.Array[_ <: ModifierM[Env]], namespace: N) extends VNodeM[Env] {
+  def provide(env: Env): BasicNamespaceVNodeM[N, Any] = copy(modifiers = js.Array(CompositeModifier(modifiers).provide(env)))
+  def provideSome[R](map: R => Env): BasicNamespaceVNodeM[N, R] = copy(modifiers = js.Array(CompositeModifier(modifiers).provideSome(map)))
+  def apply[R](args: ModifierM[R]*): BasicNamespaceVNodeM[N, Env with R] = copy(modifiers = appendSeq(modifiers, args))
+  def append[R](args: ModifierM[R]*): BasicNamespaceVNodeM[N, Env with R] = copy(modifiers = appendSeq(modifiers, args))
+  def prepend[R](args: ModifierM[R]*): BasicNamespaceVNodeM[N, Env with R] = copy(modifiers = prependSeq(modifiers, args))
 }
-object RBasicVNodeNS {
-  @inline implicit class RBasicVNodeOps[Env](val self: RBasicVNodeNS[VNodeNamespace, Env]) extends AnyVal {
-    @inline def thunk(key: Key.Value)(arguments: Any*)(renderFn: => RModifier[Env]): RThunkVNode[Env] = RThunkVNode(self, key, VNodeThunkCondition.Compare(arguments.toJSArray), () => renderFn)
-    @inline def thunkConditional(key: Key.Value)(shouldRender: Boolean)(renderFn: => RModifier[Env]): RThunkVNode[Env] = RThunkVNode(self, key, VNodeThunkCondition.Check(shouldRender), () => renderFn)
-    @inline def thunkStatic(key: Key.Value)(renderFn: => RModifier[Env]): RThunkVNode[Env] = thunkConditional(key)(false)(renderFn)
+object BasicNamespaceVNodeM {
+  @inline implicit class BasicVNodeMOps[Env](val self: BasicNamespaceVNodeM[VNodeNamespace, Env]) extends AnyVal {
+    @inline def thunk(key: Key.Value)(arguments: Any*)(renderFn: => ModifierM[Env]): ThunkVNodeM[Env] = ThunkVNodeM(self, key, VNodeThunkCondition.Compare(arguments.toJSArray), () => renderFn)
+    @inline def thunkConditional(key: Key.Value)(shouldRender: Boolean)(renderFn: => ModifierM[Env]): ThunkVNodeM[Env] = ThunkVNodeM(self, key, VNodeThunkCondition.Check(shouldRender), () => renderFn)
+    @inline def thunkStatic(key: Key.Value)(renderFn: => ModifierM[Env]): ThunkVNodeM[Env] = thunkConditional(key)(false)(renderFn)
   }
 }
 

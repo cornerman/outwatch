@@ -17,7 +17,7 @@ private[outwatch] object SnabbdomOps {
    def toSnabbdom(node: VNode): VNodeProxy = node match {
      case node: BasicVNode =>
        toRawSnabbdomProxy(node)
-     case node: AccessEnvVNode[Any] =>
+     case node: AccessEnvVNode =>
        toSnabbdom(node.node(()))
      case node: ThunkVNode =>
        node.condition match {

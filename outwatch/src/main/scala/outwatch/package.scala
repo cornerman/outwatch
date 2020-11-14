@@ -4,15 +4,17 @@ import outwatch.helpers.BasicStyleBuilder
 package object outwatch extends definitions.ManagedHelpers {
   type EmitterBuilder[+O, +R] = EmitterBuilderExec[O, R, EmitterBuilderExec.Execution]
 
-  type Modifier = RModifier[Any]
-  type VNode = RVNode[Any]
-  type ThunkVNode = RThunkVNode[Any]
-  type RBasicVNode[-Env] = RBasicVNodeNS[VNodeNamespace, Env]
-  type BasicVNode = RBasicVNode[Any]
-  type RHtmlVNode[-Env] = RBasicVNodeNS[VNodeNamespace.Html.type, Any]
-  type RSvgVNode[-Env] = RBasicVNodeNS[VNodeNamespace.Svg.type, Any]
-  type HtmlVNode = RHtmlVNode[Any]
-  type SvgVNode = RSvgVNode[Any]
+  type Modifier = ModifierM[Any]
+  type VNode = VNodeM[Any]
+  type BasicNamespaceVNode[N <: VNodeNamespace] = BasicNamespaceVNodeM[N, Any]
+  type BasicVNodeM[-Env] = BasicNamespaceVNodeM[_ <: VNodeNamespace, Env]
+  type BasicVNode = BasicVNodeM[Any]
+  type HtmlVNodeM[-Env] = BasicNamespaceVNodeM[VNodeNamespace.Html.type, Env]
+  type SvgVNodeM[-Env] = BasicNamespaceVNodeM[VNodeNamespace.Svg.type, Env]
+  type HtmlVNode = HtmlVNodeM[Any]
+  type SvgVNode = SvgVNodeM[Any]
+  type AccessEnvVNode = AccessEnvVNodeM[Any]
+  type ThunkVNode = ThunkVNodeM[Any]
 
   @deprecated("use Modifier instead", "1.0.0")
   type VDomModifier = Modifier

@@ -6,13 +6,13 @@ import zio.interop.catz._
 
 package object z {
   type ZModifierEnv = Has[Platform]
-  type ZRModifier[-Env] = RModifier[ZModifierEnv with Env]
-  type ZModifier = ZRModifier[Any]
+  type ZModifierM[-Env] = ModifierM[ZModifierEnv with Env]
+  type ZModifier = ZModifierM[Any]
 
   implicit def render[Env, R, T: Render[R, ?]]: Render[ZModifierEnv with Env with R, RIO[Env, T]] = new Render[ZModifierEnv with Env with R, RIO[Env, T]] {
-    def render(effect: RIO[Env, T]) = RModifier.access[ZModifierEnv with Env with R] { env =>
+    def render(effect: RIO[Env, T]) = ModifierM.access[ZModifierEnv with Env with R] { env =>
       implicit val runtime = Runtime(env, env.get[Platform])
-      RModifier(effect).provide(env)
+      ModifierM(effect).provide(env)
     }
   }
 

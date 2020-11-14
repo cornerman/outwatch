@@ -25,13 +25,13 @@ object AttributeBuilder {
     @inline def assign(value: T): A = create(value)
   }
 
-  @inline def ofModifier[T](create: T => Modifier): AttributeBuilder[T, Modifier] = ofRModifier[Any, T](create)
-  @inline def ofVNode[T](create: T => VNode): AttributeBuilder[T, VNode] = ofRVNode[Any, T](create)
-  @inline def ofRModifier[Env, T](create: T => RModifier[Env]): AttributeBuilder[T, RModifier[Env]] = apply(create)
-  @inline def ofRVNode[Env, T](create: T => RVNode[Env]): AttributeBuilder[T, RVNode[Env]] = apply(create)
+  @inline def ofModifier[T](create: T => Modifier): AttributeBuilder[T, Modifier] = ofModifierM[Any, T](create)
+  @inline def ofVNode[T](create: T => VNode): AttributeBuilder[T, VNode] = ofVNodeM[Any, T](create)
+  @inline def ofModifierM[Env, T](create: T => ModifierM[Env]): AttributeBuilder[T, ModifierM[Env]] = apply(create)
+  @inline def ofVNodeM[Env, T](create: T => VNodeM[Env]): AttributeBuilder[T, VNodeM[Env]] = apply(create)
 
-  @inline class AttributeBuilderModifier[Env, T, A <: RModifier[Env]](val builder: AttributeBuilder[T, RModifier[Env]]) extends AnyVal {
-    final def toggle(value: T): AttributeBuilder[Boolean, RModifier[Env]] = AttributeBuilder.ofRModifier { enabled =>
+  @inline class AttributeBuilderModifier[Env, T, A <: ModifierM[Env]](val builder: AttributeBuilder[T, ModifierM[Env]]) extends AnyVal {
+    final def toggle(value: T): AttributeBuilder[Boolean, ModifierM[Env]] = AttributeBuilder.ofModifierM { enabled =>
       if (enabled) builder.assign(value) else Modifier.empty
     }
   }

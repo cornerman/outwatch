@@ -235,7 +235,7 @@ private[outwatch] object NativeModifiers {
     val allSubscribables = new MutableNestedArray[Subscribable]()
     var hasStream = false
 
-    def append[R](subscribables: MutableNestedArray[Subscribable], modifiers: MutableNestedArray[StaticModifier], modifier: RModifier[R], env: R, inStream: Boolean): Unit = {
+    def append[R](subscribables: MutableNestedArray[Subscribable], modifiers: MutableNestedArray[StaticModifier], modifier: ModifierM[R], env: R, inStream: Boolean): Unit = {
 
       @inline def appendStatic(mod: StaticModifier): Unit = {
         modifiers.push(mod)
@@ -248,7 +248,7 @@ private[outwatch] object NativeModifiers {
         val streamedSubscribables = new MutableNestedArray[Subscribable]()
 
         subscribables.push(new Subscribable(() =>
-          mod.subscription(Observer.contramap[Observer, Unit, RModifier[R]](observer) { modifier =>
+          mod.subscription(Observer.contramap[Observer, Unit, ModifierM[R]](observer) { modifier =>
             streamedSubscribables.foreach(_.unsubscribe())
             streamedSubscribables.clear()
             streamedModifiers.clear()
@@ -265,7 +265,7 @@ private[outwatch] object NativeModifiers {
         case c: CompositeModifier[R] => c.modifiers.foreach(append(subscribables, modifiers, _, env, inStream))
         case h: DomHook if inStream => mirrorStreamedDomHook(h).foreach(appendStatic)
         case mod: StaticModifier => appendStatic(mod)
-        case child: RVNode[R] => appendStatic(VNodeProxyNode(SnabbdomOps.toSnabbdom(child.provide(env))))
+        case child: VNodeM[R] => appendStatic(VNodeProxyNode(SnabbdomOps.toSnabbdom(child.provide(env))))
         case child: StringVNode  => appendStatic(VNodeProxyNode(VNodeProxy.fromString(child.text)))
         case m: StreamModifier[R] => appendStream(m)
         case s: CancelableModifier => subscribables.push(new Subscribable(() => s.subscription()))

@@ -13,7 +13,7 @@ import cats.data.Kleisli
 import cats.effect.Effect
 
 trait Render[-Env, -T] {
-  def render(value: T): RModifier[Env]
+  def render(value: T): ModifierM[Env]
 }
 
 object Render {
@@ -68,9 +68,9 @@ object Render {
     @inline def render(value: Modifier): Modifier = value
   }
 
-  @inline implicit def RModifierRender[Env]: Render[Env, RModifier[Env]] = new RModifierRender[Env]
-  @inline private final class RModifierRender[Env] extends Render[Env, RModifier[Env]] {
-    @inline def render(value: RModifier[Env]): RModifier[Env] = value
+  @inline implicit def ModifierMRender[Env]: Render[Env, ModifierM[Env]] = new ModifierMRender[Env]
+  @inline private final class ModifierMRender[Env] extends Render[Env, ModifierM[Env]] {
+    @inline def render(value: ModifierM[Env]): ModifierM[Env] = value
   }
 
   implicit object StringRender extends Render[Any, String] {
@@ -100,12 +100,12 @@ object Render {
 
   @inline implicit def KleisliRenderAs[F[_], Env, T](implicit r: Render[Any, F[T]]): Render[Env, Kleisli[F, Env, T]] = new KleisliRenderAsClass[F, Env, T]
   @inline private final class KleisliRenderAsClass[F[_], Env, T](implicit r: Render[Any, F[T]]) extends Render[Env, Kleisli[F, Env, T]] {
-    @inline def render(kleisli: Kleisli[F, Env, T]) = RModifier.access[Env](env => r.render(kleisli.run(env)))
+    @inline def render(kleisli: Kleisli[F, Env, T]) = ModifierM.access[Env](env => r.render(kleisli.run(env)))
   }
 
-  @inline implicit def SyncEffectRender[F[_] : RunSyncEffect, Env]: Render[Env, F[RModifier[Env]]] = new SyncEffectRenderClass[F, Env]
-  @inline private final class SyncEffectRenderClass[F[_] : RunSyncEffect, Env] extends Render[Env, F[RModifier[Env]]] {
-    @inline def render(effect: F[RModifier[Env]]) = syncToModifier(effect)
+  @inline implicit def SyncEffectRender[F[_] : RunSyncEffect, Env]: Render[Env, F[ModifierM[Env]]] = new SyncEffectRenderClass[F, Env]
+  @inline private final class SyncEffectRenderClass[F[_] : RunSyncEffect, Env] extends Render[Env, F[ModifierM[Env]]] {
+    @inline def render(effect: F[ModifierM[Env]]) = syncToModifier(effect)
   }
 
   @inline implicit def SyncEffectRenderAs[F[_] : RunSyncEffect, Env, T : Render[Env, ?]]: Render[Env, F[T]] = new SyncEffectRenderAsClass[F, Env, T]
@@ -113,9 +113,9 @@ object Render {
     @inline def render(effect: F[T]) = syncToModifierRender(effect)
   }
 
-  implicit def EffectRender[F[_] : Effect, Env]: Render[Env, F[RModifier[Env]]] = new EffectRenderClass[F, Env]
-  @inline private final class EffectRenderClass[F[_] : Effect, Env] extends Render[Env, F[RModifier[Env]]] {
-    def render(effect: F[RModifier[Env]]) = asyncToModifier(effect)
+  implicit def EffectRender[F[_] : Effect, Env]: Render[Env, F[ModifierM[Env]]] = new EffectRenderClass[F, Env]
+  @inline private final class EffectRenderClass[F[_] : Effect, Env] extends Render[Env, F[ModifierM[Env]]] {
+    def render(effect: F[ModifierM[Env]]) = asyncToModifier(effect)
   }
 
   @inline implicit def EffectRenderAs[F[_] : Effect, Env, T : Render[Env, ?]]: Render[Env, F[T]] = new EffectRenderAsClass[F, Env, T]
@@ -123,9 +123,9 @@ object Render {
     @inline def render(effect: F[T]) = asyncToModifierRender(effect)
   }
 
-  implicit def FutureRender[Env](implicit ec: ExecutionContext): Render[Env, Future[RModifier[Env]]] = new FutureRenderClass[Env]
-  @inline private final class FutureRenderClass[Env](implicit ec: ExecutionContext) extends Render[Env, Future[RModifier[Env]]] {
-    @inline def render(future: Future[RModifier[Env]]) = futureToModifier(future)
+  implicit def FutureRender[Env](implicit ec: ExecutionContext): Render[Env, Future[ModifierM[Env]]] = new FutureRenderClass[Env]
+  @inline private final class FutureRenderClass[Env](implicit ec: ExecutionContext) extends Render[Env, Future[ModifierM[Env]]] {
+    @inline def render(future: Future[ModifierM[Env]]) = futureToModifier(future)
   }
 
   @inline implicit def FutureRenderAs[Env, T : Render[Env, ?]](implicit ec: ExecutionContext): Render[Env, Future[T]] = new FutureRenderAsClass[Env, T]
@@ -133,9 +133,9 @@ object Render {
     @inline def render(future: Future[T]) = futureToModifierRender(future)
   }
 
-  @inline implicit def SourceRender[F[_] : Source, Env]: Render[Env, F[RModifier[Env]]] = new SourceRenderClass[F, Env]
-  @inline private final class SourceRenderClass[F[_] : Source, Env] extends Render[Env, F[RModifier[Env]]] {
-    @inline def render(source: F[RModifier[Env]]) = sourceToModifier(source)
+  @inline implicit def SourceRender[F[_] : Source, Env]: Render[Env, F[ModifierM[Env]]] = new SourceRenderClass[F, Env]
+  @inline private final class SourceRenderClass[F[_] : Source, Env] extends Render[Env, F[ModifierM[Env]]] {
+    @inline def render(source: F[ModifierM[Env]]) = sourceToModifier(source)
   }
 
   @inline implicit def SourceRenderAs[F[_] : Source, Env, T : Render[Env, ?]]: Render[Env, F[T]] = new SourceRenderAsClass[F, Env, T]
@@ -153,22 +153,22 @@ object Render {
     @inline def render(source: F[Seq[ChildCommand]]) = childCommandSeqToModifier(source)
   }
 
-  @noinline private def iterableToModifierRender[Env, T: Render[Env, ?]](value: Iterable[T]): RModifier[Env] = CompositeModifier(value.map(RModifier(_)))
-  @noinline private def optionToModifierRender[Env, T: Render[Env, ?]](value: Option[T]): RModifier[Env] = value.fold[RModifier[Env]](RModifier.empty)(RModifier(_))
-  @noinline private def undefinedToModifierRender[Env, T: Render[Env, ?]](value: js.UndefOr[T]): RModifier[Env] = value.fold[RModifier[Env]](RModifier.empty)(RModifier(_))
-  @noinline private def syncToModifierRender[F[_] : RunSyncEffect, Env, T: Render[Env, ?]](effect: F[T]): RModifier[Env] = RModifier.delay(RModifier(RunSyncEffect[F].unsafeRun(effect)))
-  @noinline private def syncToModifier[F[_] : RunSyncEffect, Env](effect: F[RModifier[Env]]): RModifier[Env] = RModifier.delay(RunSyncEffect[F].unsafeRun(effect))
-  @noinline private def asyncToModifier[F[_] : Effect, Env](effect: F[RModifier[Env]]): RModifier[Env] = StreamModifier(Observable.fromAsync(effect).subscribe(_))
-  @noinline private def asyncToModifierRender[F[_] : Effect, Env, T: Render[Env, ?]](effect: F[T]): RModifier[Env] = StreamModifier(Observable.fromAsync(effect).map(RModifier(_)).subscribe(_))
-  @noinline private def sourceToModifier[F[_] : Source, Env](source: F[RModifier[Env]]): RModifier[Env] = StreamModifier(Source[F].subscribe(source))
-  @noinline private def sourceToModifierRender[F[_] : Source, Env, T: Render[Env, ?]](source: F[T]): RModifier[Env] = StreamModifier(sink => Source[F].subscribe(source)(Observer.contramap[Observer, RModifier[Env], T](sink)(RModifier(_))))
-  @noinline private def childCommandSeqToModifier[F[_] : Source, Env](source: F[Seq[ChildCommand]]): RModifier[Env] = ChildCommand.stream(source)
-  @noinline private def childCommandToModifier[F[_] : Source, Env](source: F[ChildCommand]): RModifier[Env] = ChildCommand.stream(Observable.map(source)(Seq(_)))
-  @noinline private def futureToModifierRender[Env, T: Render[Env, ?]](future: Future[T])(implicit ec: ExecutionContext): RModifier[Env] = future.value match {
-    case Some(Success(value)) => RModifier(value)
-    case _ => StreamModifier(Observable.fromFuture(future).map(RModifier(_)).subscribe(_))
+  @noinline private def iterableToModifierRender[Env, T: Render[Env, ?]](value: Iterable[T]): ModifierM[Env] = CompositeModifier(value.map(ModifierM(_)))
+  @noinline private def optionToModifierRender[Env, T: Render[Env, ?]](value: Option[T]): ModifierM[Env] = value.fold[ModifierM[Env]](ModifierM.empty)(ModifierM(_))
+  @noinline private def undefinedToModifierRender[Env, T: Render[Env, ?]](value: js.UndefOr[T]): ModifierM[Env] = value.fold[ModifierM[Env]](ModifierM.empty)(ModifierM(_))
+  @noinline private def syncToModifierRender[F[_] : RunSyncEffect, Env, T: Render[Env, ?]](effect: F[T]): ModifierM[Env] = ModifierM.delay(ModifierM(RunSyncEffect[F].unsafeRun(effect)))
+  @noinline private def syncToModifier[F[_] : RunSyncEffect, Env](effect: F[ModifierM[Env]]): ModifierM[Env] = ModifierM.delay(RunSyncEffect[F].unsafeRun(effect))
+  @noinline private def asyncToModifier[F[_] : Effect, Env](effect: F[ModifierM[Env]]): ModifierM[Env] = StreamModifier(Observable.fromAsync(effect).subscribe(_))
+  @noinline private def asyncToModifierRender[F[_] : Effect, Env, T: Render[Env, ?]](effect: F[T]): ModifierM[Env] = StreamModifier(Observable.fromAsync(effect).map(ModifierM(_)).subscribe(_))
+  @noinline private def sourceToModifier[F[_] : Source, Env](source: F[ModifierM[Env]]): ModifierM[Env] = StreamModifier(Source[F].subscribe(source))
+  @noinline private def sourceToModifierRender[F[_] : Source, Env, T: Render[Env, ?]](source: F[T]): ModifierM[Env] = StreamModifier(sink => Source[F].subscribe(source)(Observer.contramap[Observer, ModifierM[Env], T](sink)(ModifierM(_))))
+  @noinline private def childCommandSeqToModifier[F[_] : Source, Env](source: F[Seq[ChildCommand]]): ModifierM[Env] = ChildCommand.stream(source)
+  @noinline private def childCommandToModifier[F[_] : Source, Env](source: F[ChildCommand]): ModifierM[Env] = ChildCommand.stream(Observable.map(source)(Seq(_)))
+  @noinline private def futureToModifierRender[Env, T: Render[Env, ?]](future: Future[T])(implicit ec: ExecutionContext): ModifierM[Env] = future.value match {
+    case Some(Success(value)) => ModifierM(value)
+    case _ => StreamModifier(Observable.fromFuture(future).map(ModifierM(_)).subscribe(_))
   }
-  @noinline private def futureToModifier[Env](future: Future[RModifier[Env]])(implicit ec: ExecutionContext): RModifier[Env] = future.value match {
+  @noinline private def futureToModifier[Env](future: Future[ModifierM[Env]])(implicit ec: ExecutionContext): ModifierM[Env] = future.value match {
     case Some(Success(value)) => value
     case _ => StreamModifier(Observable.fromFuture(future).subscribe(_))
   }
