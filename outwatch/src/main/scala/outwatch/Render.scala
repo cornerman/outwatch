@@ -55,6 +55,11 @@ object Render {
     @inline def render(value: Option[T]) = optionToModifierRender(value)
   }
 
+  @inline implicit def EitherModifierAs[LEnv, REnv, L : Render[LEnv, ?], R : Render[REnv, ?]]: Render[LEnv with REnv, Either[L,R]] = new EitherRenderAsClass[LEnv, REnv, L, R]
+  @inline private final class EitherRenderAsClass[LEnv, REnv, L : Render[LEnv, ?], R : Render[REnv, ?]] extends Render[LEnv with REnv, Either[L, R]] {
+    @inline def render(value: Either[L, R]) = eitherToModifierRender(value)
+  }
+
   implicit object UndefinedModifier extends Render[Any, js.UndefOr[Modifier]] {
     @inline def render(value: js.UndefOr[Modifier]): Modifier = value.getOrElse(Modifier.empty)
   }
@@ -155,6 +160,7 @@ object Render {
 
   @noinline private def iterableToModifierRender[Env, T: Render[Env, ?]](value: Iterable[T]): ModifierM[Env] = CompositeModifier(value.map(ModifierM(_)))
   @noinline private def optionToModifierRender[Env, T: Render[Env, ?]](value: Option[T]): ModifierM[Env] = value.fold[ModifierM[Env]](ModifierM.empty)(ModifierM(_))
+  @noinline private def eitherToModifierRender[LEnv, REnv, L : Render[LEnv, ?], R : Render[REnv, ?]](value: Either[L,R]): ModifierM[LEnv with REnv] = value.fold(ModifierM(_), ModifierM(_))
   @noinline private def undefinedToModifierRender[Env, T: Render[Env, ?]](value: js.UndefOr[T]): ModifierM[Env] = value.fold[ModifierM[Env]](ModifierM.empty)(ModifierM(_))
   @noinline private def syncToModifierRender[F[_] : RunSyncEffect, Env, T: Render[Env, ?]](effect: F[T]): ModifierM[Env] = ModifierM.delay(ModifierM(RunSyncEffect[F].unsafeRun(effect)))
   @noinline private def syncToModifier[F[_] : RunSyncEffect, Env](effect: F[ModifierM[Env]]): ModifierM[Env] = ModifierM.delay(RunSyncEffect[F].unsafeRun(effect))
