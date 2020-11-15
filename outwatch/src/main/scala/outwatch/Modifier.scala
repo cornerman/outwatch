@@ -80,8 +80,9 @@ object ModifierM extends ModifierMOps {
 
   @inline def delay[Env, T : Render[Env, ?]](modifier: => T): ModifierM[Env] = AccessEnvModifier[Env](env => ModifierM(modifier).provide(env))
 
-  @inline def access[Env] = new PartiallyAppliedAccess[Env]
-  @inline class PartiallyAppliedAccess[Env] {
+  @inline def access[Env](modifier: Env => Modifier): ModifierM[Env] = AccessEnvModifier[Env](modifier)
+  @inline def accessM[Env] = new PartiallyAppliedAccessM[Env]
+  @inline class PartiallyAppliedAccessM[Env] {
     @inline def apply[R](modifier: Env => ModifierM[R]): ModifierM[Env with R] = access(env => modifier(env).provide(env))
   }
 
@@ -208,8 +209,9 @@ sealed trait VNodeMOps {
   @inline final def svg(name: String): SvgVNode = BasicNamespaceVNodeM(name, js.Array[Modifier](), VNodeNamespace.Svg)
 }
 object VNodeM extends VNodeMOps {
-  @inline def access[Env] = new PartiallyAppliedAccess[Env]
-  @inline class PartiallyAppliedAccess[Env] {
+  @inline def access[Env](node: Env => VNode): VNodeM[Env] = new AccessEnvVNodeM[Env](node)
+  @inline def accessM[Env] = new PartiallyAppliedAccessM[Env]
+  @inline class PartiallyAppliedAccessM[Env] {
     @inline def apply[R](node: Env => VNodeM[R]): VNodeM[Env with R] = access(env => node(env).provide(env))
   }
 

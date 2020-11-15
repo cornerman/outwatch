@@ -221,8 +221,8 @@ object EmitterBuilderExec {
     @inline final def provide(env: Env): EmitterBuilderExec[O, R[Any], Exec] = builder.mapResult(r => AccessEnvironment[R].provide(r)(env))
     @inline final def provideSome[REnv](map: REnv => Env): EmitterBuilderExec[O, R[REnv], Exec] = builder.mapResult(r => AccessEnvironment[R].provideSome(r)(map))
 
-    @inline final def useAccess[REnv]: EmitterBuilderExec[REnv, R[Env with REnv], Exec] = EmitterBuilder.access[REnv](builder.use)
-    @inline final def withAccess[REnv]: EmitterBuilderExec[(O, REnv), R[Env with REnv], Exec] = EmitterBuilder.access[REnv](env => builder.map(_ -> env))
+    @inline final def useAccess[REnv]: EmitterBuilderExec[REnv, R[Env with REnv], Exec] = EmitterBuilder.accessM[REnv](builder.use)
+    @inline final def withAccess[REnv]: EmitterBuilderExec[(O, REnv), R[Env with REnv], Exec] = EmitterBuilder.accessM[REnv](env => builder.map(_ -> env))
   }
 
   @inline implicit class EventActions[O <: dom.Event, R](val builder: EmitterBuilder.Sync[O, R]) extends AnyVal {
@@ -314,6 +314,10 @@ object EmitterBuilder {
 
   @inline def access[Env] = new PartiallyAppliedAccess[Env]
   @inline class PartiallyAppliedAccess[Env] {
+    @inline def apply[O, T[-_] : AccessEnvironment, Exec <: Execution](emitter: Env => EmitterBuilderExec[O, T[Any], Exec]): EmitterBuilderExec[O, T[Env], Exec] = new Access(env => emitter(env))
+  }
+  @inline def accessM[Env] = new PartiallyAppliedAccessM[Env]
+  @inline class PartiallyAppliedAccessM[Env] {
     @inline def apply[R, O, T[-_] : AccessEnvironment, Exec <: Execution](emitter: Env => EmitterBuilderExec[O, T[R], Exec]): EmitterBuilderExec[O, T[Env with R], Exec] = access(env => emitter(env).provide(env))
   }
 }
