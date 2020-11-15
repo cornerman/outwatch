@@ -9,10 +9,17 @@ package object z {
   type ZModifierM[-Env] = ModifierM[ZModifierEnv with Env]
   type ZModifier = ZModifierM[Any]
 
-  implicit def render[Env, R, T: Render[R, ?]]: Render[ZModifierEnv with Env with R, RIO[Env, T]] = new Render[ZModifierEnv with Env with R, RIO[Env, T]] {
+  implicit def renderWithoutError[Env, R, T: Render[R, ?]]: Render[ZModifierEnv with Env with R, RIO[Env, T]] = new Render[ZModifierEnv with Env with R, RIO[Env, T]] {
     def render(effect: RIO[Env, T]) = ModifierM.access[ZModifierEnv with Env with R] { env =>
       implicit val runtime = Runtime(env, env.get[Platform])
-      ModifierM(effect).provide(env)
+      Render.EffectRenderAs[RIO[Env, ?], R, T].render(effect).provide(env)
+    }
+  }
+
+  implicit def renderWithError[Env, RE, RT, E: Render[RE, ?], T: Render[RT, ?]]: Render[ZModifierEnv with Env with RT with RE, ZIO[Env, E, T]] = new Render[ZModifierEnv with Env with RT with RE, ZIO[Env, E, T]] {
+    def render(effect: ZIO[Env, E, T]) = ModifierM.access[ZModifierEnv with Env with RT with RE] { env =>
+      implicit val runtime = Runtime(env, env.get[Platform])
+      Render.EffectRenderAs[RIO[Env, ?], RE with RT, ModifierM[RE with RT]].render(effect.fold(ModifierM(_), ModifierM(_))).provide(env)
     }
   }
 
