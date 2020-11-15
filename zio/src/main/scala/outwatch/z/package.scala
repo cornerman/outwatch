@@ -32,6 +32,12 @@ package object z {
         self.concatMapAsync(effect).provide(env)
       }
 
+    @inline def concatMapSingleZIO[R, T](effect: O => RIO[R, T]): EmitterBuilder[T, Result[ZModifierEnv with R with Env]] =
+      EmitterBuilder.access { env =>
+        implicit val runtime = Runtime(env, env.get[Platform])
+        self.concatMapSingleAsync(effect).provide(env)
+      }
+
     @inline def foreachZIO[R](action: O => RIO[R, Unit]): Result[ZModifierEnv with R with Env] = concatMapZIO(action).discard
     @inline def doZIO[R](action: RIO[R, Unit]): Result[ZModifierEnv with R with Env] = foreachZIO(_ => action)
   }
@@ -44,6 +50,12 @@ package object z {
       EmitterBuilder.access[ZModifierEnv with R].apply[Any, T, RIO[-?, Result], EmitterBuilderExec.Execution] { env =>
         implicit val runtime = Runtime(env, env.get[Platform])
         self.concatMapAsync(effect).mapResult(RIO.succeed(_))
+      }
+
+    @inline def concatMapSingleZIO[R, T](effect: O => RIO[R, T]): EmitterBuilder[T, RIO[ZModifierEnv with R, Result]] =
+      EmitterBuilder.access[ZModifierEnv with R].apply[Any, T, RIO[-?, Result], EmitterBuilderExec.Execution] { env =>
+        implicit val runtime = Runtime(env, env.get[Platform])
+        self.concatMapSingleAsync(effect).mapResult(RIO.succeed(_))
       }
 
     @inline def foreachZIO[R](action: O => RIO[R, Unit]): RIO[ZModifierEnv with R, Result] = concatMapZIO(action).discard
