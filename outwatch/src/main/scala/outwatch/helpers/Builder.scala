@@ -41,20 +41,20 @@ object AttributeBuilder {
   }
 
   @inline implicit class AttributeBuilderOperations[T, A](val builder: AttributeBuilder[T, A]) extends AnyVal {
-    @inline final def <--[F[_] : Functor](source: F[_ <: T]): F[A] = Functor[F].map(source)(builder.assign)
+    @inline final def <--[F[_] : Functor](source: F[T]): F[A] = Functor[F].map(source)(builder.assign)
 
-    @inline final def <--?[F[_] : Functor](source: F[_ <: Option[T]]): F[Option[A]] = Functor[F].map(source)(builder.assignOption)
+    @inline final def <--?[F[_] : Functor](source: F[Option[T]]): F[Option[A]] = Functor[F].map(source)(builder.assignOption)
   }
 
-  @inline implicit class AccessEnvironmentOperations[Env, T, A[-_] : AccessEnvironment](val builder: AttributeBuilder[T, A[Env]]) {
+  @inline implicit class AccessEnvironmentOperations[Env, T, A[-_] : AccessEnvironment](builder: AttributeBuilder[T, _ <: A[Env]]) {
     @inline final def provide(env: Env): AttributeBuilder[T, A[Any]] = builder.mapResult(r => AccessEnvironment[A].provide(r)(env))
     @inline final def provideSome[REnv](map: REnv => Env): AttributeBuilder[T, A[REnv]] = builder.mapResult(r => AccessEnvironment[A].provideSome(r)(map))
 
     @inline final def useAccess[REnv]: AttributeBuilder[REnv => T, A[Env with REnv]] = AttributeBuilder.accessM[REnv](builder.use)
   }
 
-  @inline class MonoidOperations[T, A : Monoid](val builder: AttributeBuilder[T, A]) {
-    @inline final def toggle(value: T): AttributeBuilder[Boolean, A] = AttributeBuilder { enabled =>
+  @inline class MonoidOperations[T, A : Monoid](builder: AttributeBuilder[T, _ <: A]) {
+    @inline final def toggle(value: => T): AttributeBuilder[Boolean, A] = AttributeBuilder { enabled =>
       if (enabled) builder.assign(value) else Monoid.empty
     }
   }
