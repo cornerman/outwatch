@@ -2,7 +2,7 @@ package outwatch.helpers
 
 import outwatch._
 import colibri.{Source, Observable}
-import cats.Monoid
+import cats.{Functor, Monoid}
 
 import scala.language.dynamics
 
@@ -14,10 +14,6 @@ trait AttributeBuilder[-T, +A] extends Any {
   @inline final def :=(value: T): A = assign(value)
 
   @inline final def :=?(value: Option[T]): Option[A] = assignOption(value)
-
-  @inline final def <--[F[_] : Source](source: F[_ <: T]): Observable[A] = Observable.map(source)(assign)
-
-  @inline final def <--?[F[_] : Source](source: F[_ <: Option[T]]): Observable[Option[A]] = Observable.map(source)(assignOption)
 
   @inline final def mapResult[RA](f: A => RA): AttributeBuilder[T, RA] = AttributeBuilder(t => f(assign(t)))
 
@@ -42,6 +38,12 @@ object AttributeBuilder {
   @inline def accessM[Env] = new PartiallyAppliedAccessM[Env]
   @inline class PartiallyAppliedAccessM[Env] {
     @inline def apply[R, T, A[-_] : AccessEnvironment](builder: Env => AttributeBuilder[T, A[R]]): AttributeBuilder[T, A[Env with R]] = access(env => builder(env).provide(env))
+  }
+
+  @inline implicit class AttributeBuilderOperations[T, A](val builder: AttributeBuilder[T, A]) extends AnyVal {
+    @inline final def <--[F[_] : Functor](source: F[_ <: T]): F[A] = Functor[F].map(source)(builder.assign)
+
+    @inline final def <--?[F[_] : Functor](source: F[_ <: Option[T]]): F[Option[A]] = Functor[F].map(source)(builder.assignOption)
   }
 
   @inline implicit class AccessEnvironmentOperations[Env, T, A[-_] : AccessEnvironment](val builder: AttributeBuilder[T, A[Env]]) {
