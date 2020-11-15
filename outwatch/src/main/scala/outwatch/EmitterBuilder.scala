@@ -55,6 +55,9 @@ trait EmitterBuilderExec[+O, +R, +Exec <: EmitterBuilderExec.Execution] {
   @inline final def foreachAsync[G[_] : Effect](action: O => G[Unit]): R = concatMapAsync(action).discard
   @inline final def doAsync[G[_] : Effect](action: G[Unit]): R = foreachAsync(_ => action)
 
+  @inline final def foreachSingleAsync[G[_] : Effect](action: O => G[Unit]): R = concatMapSingleAsync(action).discard
+  @inline final def doSingleAsync[G[_] : Effect](action: G[Unit]): R = foreachSingleAsync(_ => action)
+
   final def map[T](f: O => T): EmitterBuilderExec[T, R, Exec] = transformSinkWithExec(_.contramap(f))
 
   final def collect[T](f: PartialFunction[O, T]): EmitterBuilderExec[T, R, Exec] = transformSinkWithExec(_.contracollect(f))
@@ -74,6 +77,12 @@ trait EmitterBuilderExec[+O, +R, +Exec <: EmitterBuilderExec.Execution] {
   @inline final def useSync[G[_]: RunSyncEffect, T](value: G[T]): EmitterBuilderExec[T, R, Exec] = mapSync(_ => value)
 
   @inline final def useAsync[G[_]: Effect, T](value: G[T]): EmitterBuilder[T, R] = concatMapAsync(_ => value)
+
+  @inline final def useFuture[T](value: => Future[T])(implicit ec: ExecutionContext): EmitterBuilder[T, R] = concatMapFuture(_ => value)
+
+  @inline final def useSingleAsync[G[_]: Effect, T](value: G[T]): EmitterBuilder[T, R] = concatMapSingleAsync(_ => value)
+
+  @inline final def useSingleFuture[T](value: => Future[T])(implicit ec: ExecutionContext): EmitterBuilder[T, R] = concatMapSingleFuture(_ => value)
 
   @inline final def apply[G[_] : Source, T](source: G[T]): EmitterBuilderExec[T, R, Exec] = useLatest(source)
 
@@ -113,6 +122,12 @@ trait EmitterBuilderExec[+O, +R, +Exec <: EmitterBuilderExec.Execution] {
 
   final def concatMapAsync[G[_]: Effect, T](f: O => G[T]): EmitterBuilder[T, R] =
     transformWithExec[T](source => Observable.concatMapAsync(source)(f))
+
+  final def concatMapSingleFuture[T](f: O => Future[T])(implicit ec: ExecutionContext): EmitterBuilder[T, R] =
+    transformWithExec[T](source => Observable.concatMapSingleFuture(source)(f))
+
+  final def concatMapSingleAsync[G[_]: Effect, T](f: O => G[T]): EmitterBuilder[T, R] =
+    transformWithExec[T](source => Observable.concatMapSingleAsync(source)(f))
 
   final def mapSync[G[_]: RunSyncEffect, T](f: O => G[T]): EmitterBuilderExec[T, R, Exec] =
     transformWithExec[T](source => Observable.mapSync(source)(f))
@@ -205,6 +220,9 @@ object EmitterBuilderExec {
   @inline implicit class AccessEnvironmentOperations[Env, O, R[-_] : AccessEnvironment, Exec <: Execution](val builder: EmitterBuilderExec[O, R[Env], Exec]) {
     @inline final def provide(env: Env): EmitterBuilderExec[O, R[Any], Exec] = builder.mapResult(r => AccessEnvironment[R].provide(r)(env))
     @inline final def provideSome[REnv](map: REnv => Env): EmitterBuilderExec[O, R[REnv], Exec] = builder.mapResult(r => AccessEnvironment[R].provideSome(r)(map))
+
+    @inline final def useAccess[REnv]: EmitterBuilderExec[REnv, R[Env with REnv], Exec] = EmitterBuilder.access[REnv](builder.use)
+    @inline final def withAccess[REnv]: EmitterBuilderExec[(O, REnv), R[Env with REnv], Exec] = EmitterBuilder.access[REnv](env => builder.map(_ -> env))
   }
 
   @inline implicit class EventActions[O <: dom.Event, R](val builder: EmitterBuilder.Sync[O, R]) extends AnyVal {
@@ -241,8 +259,6 @@ object EmitterBuilderExec {
 
   @noinline private def combineWithLatestEmitter[Env, O, T, Exec <: Execution](sourceEmitter: EmitterBuilderExec[O, ModifierM[Env], Exec], latestEmitter: EmitterBuilder[T, ModifierM[Env]]): EmitterBuilderExec[(O, T), ModifierM[Env], Exec] =
     new Custom[(O, T), ModifierM[Env], Exec]({ sink =>
-      import scala.scalajs.js
-
       ModifierM.delay {
         var lastValue: Option[T] = None
         ModifierM(
@@ -297,11 +313,7 @@ object EmitterBuilder {
   @inline def ofNode[E](create: Observer[E] => VNode): EmitterBuilder.Sync[E, VNode] = ofVNode[E](create)
 
   @inline def access[Env] = new PartiallyAppliedAccess[Env]
-  @inline def accessM[Env] = new PartiallyAppliedAccessM[Env]
   @inline class PartiallyAppliedAccess[Env] {
-    @inline def apply[O, T[-_] : AccessEnvironment, Exec <: Execution](emitter: Env => EmitterBuilderExec[O, T[Any], Exec]): EmitterBuilderExec[O, T[Env], Exec] = new Access[Env, O, T, Exec](emitter)
-  }
-  @inline class PartiallyAppliedAccessM[Env] {
     @inline def apply[R, O, T[-_] : AccessEnvironment, Exec <: Execution](emitter: Env => EmitterBuilderExec[O, T[R], Exec]): EmitterBuilderExec[O, T[Env with R], Exec] = access(env => emitter(env).provide(env))
   }
 }

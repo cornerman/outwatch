@@ -41,7 +41,7 @@ package object z {
       concatMapZIO(_ => effect)
 
     @inline def concatMapZIO[R, T](effect: O => RIO[R, T]): EmitterBuilder[T, RIO[ZModifierEnv with R, Result]] =
-      EmitterBuilder.access[ZModifierEnv with R][T, RIO[-?, Result], EmitterBuilderExec.Execution] { env =>
+      EmitterBuilder.access[ZModifierEnv with R].apply[Any, T, RIO[-?, Result], EmitterBuilderExec.Execution] { env =>
         implicit val runtime = Runtime(env, env.get[Platform])
         self.concatMapAsync(effect).mapResult(RIO.succeed(_))
       }
