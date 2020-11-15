@@ -23,8 +23,8 @@ package object z {
   }
 
   @inline implicit class EmitterBuilderOpsAccessEnvironment[Env, O, Result[-_] : AccessEnvironment](val self: EmitterBuilder[O, Result[Env]]) {
-    @inline def useZIO[R, T](effect: RIO[R, T]): EmitterBuilder[T, Result[ZModifierEnv with R with Env]] =
-      concatMapZIO(_ => effect)
+    @inline def useZIO[R, T](effect: RIO[R, T]): EmitterBuilder[T, Result[ZModifierEnv with R with Env]] = concatMapZIO(_ => effect)
+    @inline def useSingleZIO[R, T](effect: RIO[R, T]): EmitterBuilder[T, Result[ZModifierEnv with R with Env]] = concatMapSingleZIO(_ => effect)
 
     @inline def concatMapZIO[R, T](effect: O => RIO[R, T]): EmitterBuilder[T, Result[ZModifierEnv with R with Env]] =
       EmitterBuilder.accessM { env =>
@@ -40,11 +40,13 @@ package object z {
 
     @inline def foreachZIO[R](action: O => RIO[R, Unit]): Result[ZModifierEnv with R with Env] = concatMapZIO(action).discard
     @inline def doZIO[R](action: RIO[R, Unit]): Result[ZModifierEnv with R with Env] = foreachZIO(_ => action)
+    @inline def foreachSingleZIO[R](action: O => RIO[R, Unit]): Result[ZModifierEnv with R with Env] = concatMapSingleZIO(action).discard
+    @inline def doSingleZIO[R](action: RIO[R, Unit]): Result[ZModifierEnv with R with Env] = foreachSingleZIO(_ => action)
   }
 
   @inline implicit class EmitterBuilderOps[O, Result](val self: EmitterBuilder[O, Result]) extends AnyVal {
-    @inline def useZIO[R, T](effect: RIO[R, T]): EmitterBuilder[T, RIO[ZModifierEnv with R, Result]] =
-      concatMapZIO(_ => effect)
+    @inline def useZIO[R, T](effect: RIO[R, T]): EmitterBuilder[T, RIO[ZModifierEnv with R, Result]] = concatMapZIO(_ => effect)
+    @inline def useSingleZIO[R, T](effect: RIO[R, T]): EmitterBuilder[T, RIO[ZModifierEnv with R, Result]] = concatMapSingleZIO(_ => effect)
 
     @inline def concatMapZIO[R, T](effect: O => RIO[R, T]): EmitterBuilder[T, RIO[ZModifierEnv with R, Result]] =
       EmitterBuilder.accessM[ZModifierEnv with R].apply[Any, T, RIO[-?, Result], EmitterBuilderExec.Execution] { env =>
@@ -60,5 +62,7 @@ package object z {
 
     @inline def foreachZIO[R](action: O => RIO[R, Unit]): RIO[ZModifierEnv with R, Result] = concatMapZIO(action).discard
     @inline def doZIO[R](action: RIO[R, Unit]): RIO[ZModifierEnv with R, Result] = foreachZIO(_ => action)
+    @inline def foreachSingleZIO[R](action: O => RIO[R, Unit]): RIO[ZModifierEnv with R, Result] = concatMapSingleZIO(action).discard
+    @inline def doSingleZIO[R](action: RIO[R, Unit]): RIO[ZModifierEnv with R, Result] = foreachSingleZIO(_ => action)
   }
 }
