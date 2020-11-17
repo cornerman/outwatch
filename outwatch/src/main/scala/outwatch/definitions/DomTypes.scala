@@ -12,9 +12,9 @@ import colibri.Observable
 import scala.scalajs.js
 
 private[outwatch] object BuilderTypes {
-  type ReflectedAttribute[T, _] = AttributeBuilder[T, Attr]
+  type ReflectedAttribute[T, _] = AttributeBuilder[T, Modifier]
   type Attribute[T] = BasicAttrBuilder[T]
-  type Property[T, _] = PropBuilder[T]
+  type Property[T, _] = AttributeBuilder[T, Modifier]
   type EventEmitter[E <: dom.Event] = EmitterBuilder.Sync[E, Modifier]
   type HtmlTag[T] = HtmlVNode
   type SvgTag[T] = SvgVNode
