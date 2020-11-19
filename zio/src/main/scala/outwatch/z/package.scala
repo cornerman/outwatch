@@ -9,17 +9,17 @@ package object z {
   type ZModifierM[-Env] = ModifierM[ZModifierEnv with Env]
   type ZModifier = ZModifierM[Any]
 
-  implicit def renderWithoutError[Env, R, T: Render[R, ?]]: Render[ZModifierEnv with Env with R, RIO[Env, T]] = new Render[ZModifierEnv with Env with R, RIO[Env, T]] {
-    def render(effect: RIO[Env, T]) = ModifierM.access[ZModifierEnv with Env with R] { env =>
-      implicit val runtime = Runtime(env, env.get[Platform])
-      Render.EffectRenderAs[RIO[Env, ?], R, T].render(effect).provide(env)
-    }
-  }
-
   implicit def renderWithError[Env, RE, RT, E: Render[RE, ?], T: Render[RT, ?]]: Render[ZModifierEnv with Env with RT with RE, ZIO[Env, E, T]] = new Render[ZModifierEnv with Env with RT with RE, ZIO[Env, E, T]] {
     def render(effect: ZIO[Env, E, T]) = ModifierM.access[ZModifierEnv with Env with RT with RE] { env =>
       implicit val runtime = Runtime(env, env.get[Platform])
       Render.EffectRenderAs[RIO[Env, ?], RE with RT, ModifierM[RE with RT]].render(effect.fold(ModifierM(_), ModifierM(_))).provide(env)
+    }
+  }
+
+  implicit def renderWithoutError[Env, R, T: Render[R, ?]]: Render[ZModifierEnv with Env with R, RIO[Env, T]] = new Render[ZModifierEnv with Env with R, RIO[Env, T]] {
+    def render(effect: RIO[Env, T]) = ModifierM.access[ZModifierEnv with Env with R] { env =>
+      implicit val runtime = Runtime(env, env.get[Platform])
+      Render.EffectRenderAs[RIO[Env, ?], R, T].render(effect).provide(env)
     }
   }
 
@@ -53,7 +53,7 @@ package object z {
 
   @inline implicit class EmitterBuilderOps[O, Result](val self: EmitterBuilder[O, Result]) extends AnyVal {
     @inline def useZIO[R, T](effect: RIO[R, T]): EmitterBuilder[T, RIO[ZModifierEnv with R, Result]] = mapZIO(_ => effect)
-    // @inline def useSingleZIO[R, T](effect: RIO[R, T]): EmitterBuilder[T, RIO[ZModifierEnv with R, Result]] = mapZIOSingleOrDrop(_ => effect)
+    @inline def useSingleZIO[R, T](effect: RIO[R, T]): EmitterBuilder[T, RIO[ZModifierEnv with R, Result]] = mapZIOSingleOrDrop(_ => effect)
 
     @inline def mapZIO[R, T](effect: O => RIO[R, T]): EmitterBuilder[T, RIO[ZModifierEnv with R, Result]] =
       EmitterBuilder.accessM[ZModifierEnv with R].apply[Any, T, RIO[-?, Result], RIO[-?, Result], EmitterBuilderExec.Execution] { env =>
@@ -69,7 +69,7 @@ package object z {
 
     @inline def foreachZIO[R](action: O => RIO[R, Unit]): RIO[ZModifierEnv with R, Result] = mapZIO(action).discard
     @inline def doZIO[R](action: RIO[R, Unit]): RIO[ZModifierEnv with R, Result] = foreachZIO(_ => action)
-    // @inline def foreachSingleZIO[R](action: O => RIO[R, Unit]): RIO[ZModifierEnv with R, Result] = mapZIOSingleOrDrop(action).discard
-    // @inline def doSingleZIO[R](action: RIO[R, Unit]): RIO[ZModifierEnv with R, Result] = foreachSingleZIO(_ => action)
+    @inline def foreachSingleZIO[R](action: O => RIO[R, Unit]): RIO[ZModifierEnv with R, Result] = mapZIOSingleOrDrop(action).discard
+    @inline def doSingleZIO[R](action: RIO[R, Unit]): RIO[ZModifierEnv with R, Result] = foreachSingleZIO(_ => action)
   }
 }
