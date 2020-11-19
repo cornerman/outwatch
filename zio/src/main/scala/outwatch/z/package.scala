@@ -31,7 +31,7 @@ package object z {
 
   @inline implicit class EmitterBuilderOpsAccessEnvironment[Env, O, RI[-_], RO[-X] <: RI[X]](val self: EmitterBuilder[O, RI[Env]])(implicit acc: AccessEnvironment[RI,RO]) {
     @inline def useZIO[R, T](effect: RIO[R, T]): EmitterBuilder[T, RO[ZModifierEnv with R with Env]] = mapZIO(_ => effect)
-    @inline def useSingleZIO[R, T](effect: RIO[R, T]): EmitterBuilder[T, RO[ZModifierEnv with R with Env]] = mapZIOSingleOrDrop(_ => effect)
+    @inline def useZIOSingleOrDrop[R, T](effect: RIO[R, T]): EmitterBuilder[T, RO[ZModifierEnv with R with Env]] = mapZIOSingleOrDrop(_ => effect)
 
     @inline def mapZIO[R, T](effect: O => RIO[R, T]): EmitterBuilder[T, RO[ZModifierEnv with R with Env]] =
       EmitterBuilder.accessM { env =>
@@ -47,13 +47,13 @@ package object z {
 
     @inline def foreachZIO[R](action: O => RIO[R, Unit]): RO[ZModifierEnv with R with Env] = mapZIO(action).discard
     @inline def doZIO[R](action: RIO[R, Unit]): RO[ZModifierEnv with R with Env] = foreachZIO(_ => action)
-    @inline def foreachSingleZIO[R](action: O => RIO[R, Unit]): RO[ZModifierEnv with R with Env] = mapZIOSingleOrDrop(action).discard
-    @inline def doSingleZIO[R](action: RIO[R, Unit]): RO[ZModifierEnv with R with Env] = foreachSingleZIO(_ => action)
+    @inline def foreachZIOSingleOrDrop[R](action: O => RIO[R, Unit]): RO[ZModifierEnv with R with Env] = mapZIOSingleOrDrop(action).discard
+    @inline def doZIOSingleOrDrop[R](action: RIO[R, Unit]): RO[ZModifierEnv with R with Env] = foreachZIOSingleOrDrop(_ => action)
   }
 
   @inline implicit class EmitterBuilderOps[O, Result](val self: EmitterBuilder[O, Result]) extends AnyVal {
     @inline def useZIO[R, T](effect: RIO[R, T]): EmitterBuilder[T, RIO[ZModifierEnv with R, Result]] = mapZIO(_ => effect)
-    @inline def useSingleZIO[R, T](effect: RIO[R, T]): EmitterBuilder[T, RIO[ZModifierEnv with R, Result]] = mapZIOSingleOrDrop(_ => effect)
+    @inline def useZIOSingleOrDrop[R, T](effect: RIO[R, T]): EmitterBuilder[T, RIO[ZModifierEnv with R, Result]] = mapZIOSingleOrDrop(_ => effect)
 
     @inline def mapZIO[R, T](effect: O => RIO[R, T]): EmitterBuilder[T, RIO[ZModifierEnv with R, Result]] =
       EmitterBuilder.accessM[ZModifierEnv with R].apply[Any, T, RIO[-?, Result], RIO[-?, Result], EmitterBuilderExec.Execution] { env =>
@@ -69,7 +69,7 @@ package object z {
 
     @inline def foreachZIO[R](action: O => RIO[R, Unit]): RIO[ZModifierEnv with R, Result] = mapZIO(action).discard
     @inline def doZIO[R](action: RIO[R, Unit]): RIO[ZModifierEnv with R, Result] = foreachZIO(_ => action)
-    @inline def foreachSingleZIO[R](action: O => RIO[R, Unit]): RIO[ZModifierEnv with R, Result] = mapZIOSingleOrDrop(action).discard
-    @inline def doSingleZIO[R](action: RIO[R, Unit]): RIO[ZModifierEnv with R, Result] = foreachSingleZIO(_ => action)
+    @inline def foreachZIOSingleOrDrop[R](action: O => RIO[R, Unit]): RIO[ZModifierEnv with R, Result] = mapZIOSingleOrDrop(action).discard
+    @inline def doZIOSingleOrDrop[R](action: RIO[R, Unit]): RIO[ZModifierEnv with R, Result] = foreachZIOSingleOrDrop(_ => action)
   }
 }
