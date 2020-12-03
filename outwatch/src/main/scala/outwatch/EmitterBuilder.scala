@@ -32,7 +32,6 @@ import scala.concurrent.duration.FiniteDuration
 // onClick.map(_ => 1).foreach(doSomething(_)): Modifier
 //
 
-
 trait EmitterBuilderExec[+O, +R, +Exec <: EmitterBuilderExec.Execution] {
 
   @inline def forwardTo[F[_] : Sink](sink: F[_ >: O]): R
@@ -191,10 +190,10 @@ object EmitterBuilderExec {
     @inline def forwardTo[F[_] : Sink](sink: F[_ >: O]): R = forwardToInTransform(base, transformF, sink)
   }
 
-  @inline final class Access[-Env, +O, RI[-_], RO[-X] <: RI[X], Exec <: Execution](base: Env => EmitterBuilderExec[O, RI[Any], Exec])(implicit acc: AccessEnvironment[RI, RO]) extends EmitterBuilderExec[O, RO[Env], Exec] {
-    @inline private[outwatch] def transformSinkWithExec[T](f: Observer[T] => Observer[O]): EmitterBuilderExec[T, RO[Env], Exec] = new Access(env => base(env).transformSinkWithExec(f))
-    @inline private[outwatch] def transformWithExec[T](f: Observable[O] => Observable[T]): EmitterBuilderExec[T, RO[Env], Exec] = new Access(env => base(env).transformWithExec(f))
-    @inline def forwardTo[F[_] : Sink](sink: F[_ >: O]): RO[Env] = AccessEnvironment[RI,RO].access(env => base(env).forwardTo(sink))
+  @inline final class Access[-Env, +O, R[-_], Exec <: Execution](base: Env => EmitterBuilderExec[O, R[Any], Exec])(implicit acc: AccessEnvironment[R]) extends EmitterBuilderExec[O, R[Env], Exec] {
+    @inline private[outwatch] def transformSinkWithExec[T](f: Observer[T] => Observer[O]): EmitterBuilderExec[T, R[Env], Exec] = new Access(env => base(env).transformSinkWithExec(f))
+    @inline private[outwatch] def transformWithExec[T](f: Observable[O] => Observable[T]): EmitterBuilderExec[T, R[Env], Exec] = new Access(env => base(env).transformWithExec(f))
+    @inline def forwardTo[F[_] : Sink](sink: F[_ >: O]): R[Env] = AccessEnvironment[R].access(env => base(env).forwardTo(sink))
   }
 
   @inline implicit def monoid[T, Exec <: Execution]: Monoid[EmitterBuilderExec[T, Modifier, Exec]] = new EmitterBuilderMonoid[T, Exec]
@@ -221,12 +220,16 @@ object EmitterBuilderExec {
     @inline def useLatestEmitter[T](emitter: EmitterBuilder[T, ModifierM[Env]]): EmitterBuilderExec[T, ModifierM[Env], Exec] = withLatestEmitter(emitter).map(_._2)
   }
 
-  @inline implicit final class AccessEnvironmentOperations[Env, O, RI[-_], RO[-X] <: RI[X], Exec <: Execution](val builder: EmitterBuilderExec[O, RI[Env], Exec])(implicit acc: AccessEnvironment[RI, RO]) {
-    @inline def provide(env: Env): EmitterBuilderExec[O, RO[Any], Exec] = builder.mapResult(r => AccessEnvironment[RI,RO].provide(r)(env))
-    @inline def provideSome[REnv](map: REnv => Env): EmitterBuilderExec[O, RO[REnv], Exec] = builder.mapResult(r => AccessEnvironment[RI,RO].provideSome(r)(map))
+  @inline implicit final class AccessEnvironmentOperations[Env, O, R[-_], Exec <: Execution](val builder: EmitterBuilderExec[O, R[Env], Exec])(implicit acc: AccessEnvironment[R]) {
+    @inline def provide(env: Env): EmitterBuilderExec[O, R[Any], Exec] = builder.mapResult(r => AccessEnvironment[R].provide(r)(env))
+    @inline def provideSome[REnv](map: REnv => Env): EmitterBuilderExec[O, R[REnv], Exec] = builder.mapResult(r => AccessEnvironment[R].provideSome(r)(map))
 
-    @inline def useAccess[REnv]: EmitterBuilderExec[REnv, RO[Env with REnv], Exec] = EmitterBuilder.accessM[REnv](builder.use)
-    @inline def withAccess[REnv]: EmitterBuilderExec[(O, REnv), RO[Env with REnv], Exec] = EmitterBuilder.accessM[REnv](env => builder.map(_ -> env))
+    @inline def useAccess[REnv]: EmitterBuilderExec[REnv, R[Env with REnv], Exec] = EmitterBuilder.accessM[REnv](builder.use)
+    @inline def withAccess[REnv]: EmitterBuilderExec[(O, REnv), R[Env with REnv], Exec] = EmitterBuilder.accessM[REnv](env => builder.map(_ -> env))
+  }
+
+  @inline implicit final class AccessEnvironmentDispatchOperations[O, R[-_]](val builder: EmitterBuilder[O, R[Any]])(implicit acc: AccessEnvironment[R]) {
+    @inline def dispatch: R[EventDispatcher[O]] = AccessEnvironment[R].access[EventDispatcher[O]](_.dispatch(builder))
   }
 
   @inline implicit final class EventActions[O <: dom.Event, R](val builder: EmitterBuilder.Sync[O, R]) extends AnyVal {
@@ -318,10 +321,19 @@ object EmitterBuilder {
 
   @inline def access[Env] = new PartiallyAppliedAccess[Env]
   @inline class PartiallyAppliedAccess[Env] {
-    @inline def apply[O, TI[-_], TO[-X] <: TI[X], Exec <: Execution](emitter: Env => EmitterBuilderExec[O, TI[Any], Exec])(implicit acc: AccessEnvironment[TI,TO]): EmitterBuilderExec[O, TO[Env], Exec] = new Access(env => emitter(env))
+    @inline def apply[O, T[-_], Exec <: Execution](emitter: Env => EmitterBuilderExec[O, T[Any], Exec])(implicit acc: AccessEnvironment[T]): EmitterBuilderExec[O, T[Env], Exec] = new Access(env => emitter(env))
   }
   @inline def accessM[Env] = new PartiallyAppliedAccessM[Env]
   @inline class PartiallyAppliedAccessM[Env] {
-    @inline def apply[R, O, TI[-_], TO[-X] <: TI[X], Exec <: Execution](emitter: Env => EmitterBuilderExec[O, TI[R], Exec])(implicit acc: AccessEnvironment[TI,TO]): EmitterBuilderExec[O, TO[Env with R], Exec] = access[Env with R][O, TI, TO, Exec](env => emitter(env).provide(env))
+    @inline def apply[R, O, T[-_], Exec <: Execution](emitter: Env => EmitterBuilderExec[O, T[R], Exec])(implicit acc: AccessEnvironment[T]): EmitterBuilderExec[O, T[Env with R], Exec] = access[Env with R][O, T, Exec](env => emitter(env).provide(env))
+  }
+}
+
+trait EventDispatcher[-T] {
+  def dispatch[R](emitter: EmitterBuilder[T, R]): R
+}
+object EventDispatcher {
+  def ofModelUpdate[M, T](subject: Subject[M], update: (T, M) => M) = new EventDispatcher[T] {
+    def dispatch[R](emitter: EmitterBuilder[T, R]): R = emitter.withLatest(subject).map(update.tupled) --> subject
   }
 }
