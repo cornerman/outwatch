@@ -9,10 +9,12 @@ import scala.language.dynamics
 trait AttributeBuilder[-T, +A] extends Any {
   def assign(value: T): A
 
+  @deprecated("Use builder <-- option instead", "1.0.0")
   @inline final def assignOption(value: Option[T]): Option[A] = value.map(assign)
 
   @inline final def :=(value: T): A = assign(value)
 
+  @deprecated("Use builder <-- option instead", "1.0.0")
   @inline final def :=?(value: Option[T]): Option[A] = assignOption(value)
 
   @inline final def mapResult[RA](f: A => RA): AttributeBuilder[T, RA] = AttributeBuilder(t => f(assign(t)))
@@ -43,6 +45,9 @@ object AttributeBuilder {
   @inline implicit class AttributeBuilderOperations[T, A](val builder: AttributeBuilder[T, A]) extends AnyVal {
     @inline final def <--[F[_] : Functor](source: F[T]): F[A] = Functor[F].map(source)(builder.assign)
 
+    @inline final def <---[F[_] : Functor, G[_] : Functor](source: F[G[T]]): F[G[A]] = Functor[F].map(source)(g => Functor[G](g)imapbuilder.assignOption)
+
+    @deprecated("Use builder <--- source instead", "1.0.0")
     @inline final def <--?[F[_] : Functor](source: F[Option[T]]): F[Option[A]] = Functor[F].map(source)(builder.assignOption)
   }
 
