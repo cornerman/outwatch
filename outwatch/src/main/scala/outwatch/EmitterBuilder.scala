@@ -209,10 +209,10 @@ object EmitterBuilderExec {
   }
 
   @inline implicit final class ModifierOperations[Env, O, Exec <: Execution](val builder: EmitterBuilderExec[O, ModifierM[Env], Exec]) extends AnyVal {
-    @inline def handled(f: Observable[O] => ModifierM[Env]): SyncIO[ModifierM[Env]] = handledF[SyncIO](f)
-    @inline def handledF[F[_] : SyncCats](f: Observable[O] => ModifierM[Env]): F[ModifierM[Env]] = handledWithF[F]((r, o) => ModifierM[Env](r, f(o)))
-    @inline def handledWith(f: (ModifierM[Env], Observable[O]) => ModifierM[Env]): SyncIO[ModifierM[Env]] = handledWithF[SyncIO](f)
-    @inline def handledWithF[F[_] : SyncCats](f: (ModifierM[Env], Observable[O]) => ModifierM[Env]): F[ModifierM[Env]] = Functor[F].map(handler.Handler.createF[F, O]) { handler =>
+    @inline def handled[R](f: Observable[O] => ModifierM[R]): SyncIO[ModifierM[Env with R]] = handledF[SyncIO, R](f)
+    @inline def handledF[F[_] : SyncCats, R](f: Observable[O] => ModifierM[R]): F[ModifierM[Env with R]] = handledWithF[F, Env with R]((r, o) => ModifierM(r, f(o)))
+    @inline def handledWith[R](f: (ModifierM[Env], Observable[O]) => ModifierM[R]): SyncIO[ModifierM[R]] = handledWithF[SyncIO, R](f)
+    @inline def handledWithF[F[_] : SyncCats, R](f: (ModifierM[Env], Observable[O]) => ModifierM[R]): F[ModifierM[R]] = Functor[F].map(handler.Handler.createF[F, O]) { handler =>
       f(builder.forwardTo(handler), handler)
     }
 
