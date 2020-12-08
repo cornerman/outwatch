@@ -148,6 +148,8 @@ trait EmitterBuilderExec[+O, +R, +Exec <: EmitterBuilderExec.Execution] {
   @inline final def transformSink[T](f: Observer[T] => Observer[O]): EmitterBuilder[T, R] = transformSinkWithExec(f)
 
   @inline final def mapResult[S](f: R => S): EmitterBuilderExec[O, S, Exec] = new EmitterBuilderExec.MapResult[O, R, S, Exec](this, f)
+
+  @inline final def dispatch(dispatcher: EventDispatcher[O]): R = dispatcher.dispatch(this)
 }
 
 object EmitterBuilderExec {
@@ -230,7 +232,7 @@ object EmitterBuilderExec {
   }
 
   @inline implicit final class AccessEnvironmentDispatchOperations[O, R[-_]](val builder: EmitterBuilder[O, R[Any]])(implicit acc: AccessEnvironment[R]) {
-    @inline def dispatch: R[EventDispatcher[O]] = AccessEnvironment[R].access[EventDispatcher[O]](_.dispatch(builder))
+    @inline def dispatch: R[EventDispatcher[O]] = AccessEnvironment[R].access[EventDispatcher[O]](builder.dispatch)
   }
 
   @inline implicit final class EventActions[O <: dom.Event, R](val builder: EmitterBuilder.Sync[O, R]) extends AnyVal {
