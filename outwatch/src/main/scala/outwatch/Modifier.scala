@@ -78,7 +78,7 @@ object ModifierM extends ModifierMOps {
 
   @inline def composite[Env](modifiers: Iterable[ModifierM[Env]]): ModifierM[Env] = CompositeModifier[Env](modifiers.toJSArray)
 
-  @inline def delay[Env, T : Render[Env, ?]](modifier: => T): ModifierM[Env] = AccessEnvModifier[Env](env => ModifierM(modifier).provide(env))
+  @inline def delay[Env](modifier: => ModifierM[Env]): ModifierM[Env] = accessM[Env](_ => modifier)
 
   @inline def access[Env](modifier: Env => Modifier): ModifierM[Env] = AccessEnvModifier[Env](modifier)
   @inline def accessM[Env] = new PartiallyAppliedAccessM[Env]
@@ -133,7 +133,7 @@ object Modifier extends ModifierMOps {
 
   @inline def composite(modifiers: Iterable[Modifier]): Modifier = ModifierM.composite(modifiers)
 
-  @inline def delay[T : Render[Any, ?]](modifier: => T): Modifier = ModifierM.delay(modifier)
+  @inline def delay(modifier: => Modifier): Modifier = ModifierM.delay(modifier)
 }
 
 sealed trait DefaultModifier[-Env] extends ModifierM[Env] {
@@ -209,6 +209,7 @@ sealed trait VNodeMOps {
   @inline final def svg(name: String): SvgVNode = BasicNamespaceVNodeM(name, js.Array[Modifier](), VNodeNamespace.Svg)
 }
 object VNodeM extends VNodeMOps {
+  @inline def delay[Env](modifier: => VNodeM[Env]): VNodeM[Env] = accessM[Env](_ => modifier)
   @inline def access[Env](node: Env => VNode): VNodeM[Env] = new AccessEnvVNodeM[Env](node)
   @inline def accessM[Env] = new PartiallyAppliedAccessM[Env]
   @inline class PartiallyAppliedAccessM[Env] {
@@ -220,7 +221,9 @@ object VNodeM extends VNodeMOps {
     @inline def own(owner: VNodeM[Env])(subscription: () => Cancelable): VNodeM[Env] = owner.append(Modifier.managedFunction(subscription))
   }
 }
-object VNode extends VNodeMOps
+object VNode extends VNodeMOps {
+  @inline def delay(node: => VNode): VNode = VNodeM.delay[Any](node)
+}
 
 @inline final case class AccessEnvVNodeM[-Env](node: Env => VNode) extends VNodeM[Env] {
   def provide(env: Env): AccessEnvVNodeM[Any] = copy(node = _ => node(env))
