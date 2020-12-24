@@ -73,7 +73,7 @@ package object z {
     @inline def doZIOSingleOrDrop[R](action: RIO[R, Unit]): RIO[ZModifierEnv with R, Result] = foreachZIOSingleOrDrop(_ => action)
   }
 
-  @inline implicit final class AccessEnvironmentDispatchOperations[O : Tag, R[-_]](val builder: EmitterBuilder[O, R[Any]])(implicit acc: AccessEnvironment[R]) {
-    @inline def dispatch: R[Has[EventDispatcher[O]]] = AccessEnvironment[R].access[Has[EventDispatcher[O]]](_.get.dispatch(builder))
+  @inline implicit final class AccessEnvironmentDispatchOperations[O : Tag, R[-_], Env](val builder: EmitterBuilder[O, R[Env]])(implicit acc: AccessEnvironment[R]) {
+    @inline def dispatch: R[Env with Has[EventDispatcher[O]]] = AccessEnvironment[R].accessM(_.get.dispatch(builder))
   }
 }
