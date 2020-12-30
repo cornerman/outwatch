@@ -42,7 +42,7 @@ trait EmitterBuilderExec[+O, +R, +Exec <: EmitterBuilderExec.Execution] {
   @inline private[outwatch] def transformSinkWithExec[T](f: Observer[T] => Observer[O]): EmitterBuilderExec[T, R, Exec]
 
   @inline final def -->[F[_] : Sink](sink: F[_ >: O]): R = forwardTo(sink)
-  @inline final def via[F[_] : Sink](sink: F[_ >: O]): EmitterBuilderExec[O, R, Exec] = transformSinkWithExec[O](o => Observer.combine[Observer,O](o, Observer.lift(sink)))
+  @inline final def via[F[_] : Sink](sink: F[_ >: O]): EmitterBuilderExec[O, R, Exec] = transformSinkWithExec[O](_.via(sink))
 
   @inline final def discard: R = forwardTo(Observer.empty)
 
