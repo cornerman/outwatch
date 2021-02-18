@@ -74,6 +74,6 @@ package object z {
   }
 
   @inline implicit final class AccessEnvironmentDispatchOperations[O : Tag, R[-_], Env](val builder: EmitterBuilder[O, R[Env]])(implicit acc: AccessEnvironment[R]) {
-    @inline def dispatch: R[Env with Has[EventDispatcher[O]]] = AccessEnvironment[R].accessM(_.get.dispatch(builder))
+    @inline def dispatch: R[Env with Has[EventDispatcher[O]]] = AccessEnvironment[R].accessM(env => builder.dispatchWith(env.get))
   }
 }

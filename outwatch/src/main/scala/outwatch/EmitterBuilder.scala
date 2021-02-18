@@ -42,7 +42,8 @@ trait EmitterBuilderExec[+O, +R, +Exec <: EmitterBuilderExec.Execution] {
   @inline private[outwatch] def transformSinkWithExec[T](f: Observer[T] => Observer[O]): EmitterBuilderExec[T, R, Exec]
 
   @inline final def -->[F[_] : Sink](sink: F[_ >: O]): R = forwardTo(sink)
-  @inline final def via[F[_] : Sink](sink: F[_ >: O]): EmitterBuilderExec[O, R, Exec] = transformSinkWithExec[O](_.via(sink))
+
+  @inline final def via[F[_] : Sink](sink: F[_ >: O]): EmitterBuilderExec[O, R, Exec] = transformSinkWithExec[O](_.combine(Observer.lift(sink): Observer[O]))
 
   @inline final def discard: R = forwardTo(Observer.empty)
 
@@ -136,10 +137,11 @@ trait EmitterBuilderExec[+O, +R, +Exec <: EmitterBuilderExec.Execution] {
   @inline final def mapSync[G[_]: RunSyncEffect, T](f: O => G[T]): EmitterBuilderExec[T, R, Exec] =
     transformWithExec[T](source => Observable.mapSync(source)(f))
 
-  @deprecated("Use transformLift instead", "1.0.0")
+  @deprecated("Use transform instead", "1.0.0")
   @inline final def transformLifted[F[_] : Source : LiftSource, OO >: O, T](f: F[OO] => F[T]): EmitterBuilder[T, R] =
     transformWithExec[T]((s: Observable[OO]) => Observable.lift(f(s.liftSource[F])))
 
+  @deprecated("Use transform instead", "1.0.0")
   @inline final def transformLift[F[_] : Source, T](f: Observable[O] => F[T]): EmitterBuilder[T, R] =
     transformWithExec[T]((s: Observable[O]) => Observable.lift(f(s)))
 
@@ -149,7 +151,7 @@ trait EmitterBuilderExec[+O, +R, +Exec <: EmitterBuilderExec.Execution] {
 
   @inline final def mapResult[S](f: R => S): EmitterBuilderExec[O, S, Exec] = new EmitterBuilderExec.MapResult[O, R, S, Exec](this, f)
 
-  @inline final def dispatchWith(dispatcher: EventDispatcher[O]): R = dispatcher.dispatch(this)
+  @inline final def dispatchWith(dispatcher: EventDispatcher[O]): R = transform[Any](dispatcher.dispatch).discard
 }
 
 object EmitterBuilderExec {
@@ -329,10 +331,10 @@ object EmitterBuilder {
 }
 
 trait EventDispatcher[-T] {
-  def dispatch[R](emitter: EmitterBuilder[T, R]): R
+  def dispatch(source: Observable[T]): Observable[Any]
 }
 object EventDispatcher {
   def ofModelUpdate[M, T](subject: Subject[M], update: (T, M) => M) = new EventDispatcher[T] {
-    def dispatch[R](emitter: EmitterBuilder[T, R]): R = emitter.withLatest(subject).map(update.tupled) --> subject
+    def dispatch(source: Observable[T]) = source.withLatestMap(subject)(update).via(subject)
   }
 }
