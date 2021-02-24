@@ -58,7 +58,7 @@ object AttributeBuilder {
     @inline final def useAccess[REnv]: AttributeBuilder[REnv => T, A[Env with REnv]] = AttributeBuilder.accessM[REnv](builder.use)
   }
 
-  @inline class MonoidOperations[T, A : Monoid](builder: AttributeBuilder[T, A]) {
+  @inline implicit class MonoidOperations[T, A : Monoid](builder: AttributeBuilder[T, A]) {
     @inline final def toggle(value: => T): AttributeBuilder[Boolean, A] = AttributeBuilder { enabled =>
       if (enabled) builder.assign(value) else Monoid.empty
     }
