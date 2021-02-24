@@ -250,9 +250,9 @@ object VNode extends VNodeMOps {
 }
 object BasicNamespaceVNodeM {
   @inline implicit class BasicVNodeMOps[Env](val self: BasicNamespaceVNodeM[VNodeNamespace, Env]) extends AnyVal {
-    @inline def thunk(key: Key.Value)(arguments: Any*)(renderFn: => ModifierM[Env]): ThunkVNodeM[Env] = ThunkVNodeM(self, key, VNodeThunkCondition.Compare(arguments.toJSArray), () => renderFn)
-    @inline def thunkConditional(key: Key.Value)(shouldRender: Boolean)(renderFn: => ModifierM[Env]): ThunkVNodeM[Env] = ThunkVNodeM(self, key, VNodeThunkCondition.Check(shouldRender), () => renderFn)
-    @inline def thunkStatic(key: Key.Value)(renderFn: => ModifierM[Env]): ThunkVNodeM[Env] = thunkConditional(key)(false)(renderFn)
+    @inline def thunk[R](key: Key.Value)(arguments: Any*)(renderFn: => ModifierM[R]): ThunkVNodeM[Env with R] = ThunkVNodeM[Env with R](self, key, VNodeThunkCondition.Compare(arguments.toJSArray), () => renderFn)
+    @inline def thunkConditional[R](key: Key.Value)(shouldRender: Boolean)(renderFn: => ModifierM[R]): ThunkVNodeM[Env with R] = ThunkVNodeM[Env with R](self, key, VNodeThunkCondition.Check(shouldRender), () => renderFn)
+    @inline def thunkStatic[R](key: Key.Value)(renderFn: => ModifierM[R]): ThunkVNodeM[Env with R] = thunkConditional(key)(false)(renderFn)
   }
 }
 
